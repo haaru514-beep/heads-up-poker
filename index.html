@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heads-Up Poker</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section id="loginView" class="auth">
+        <div class="brand">
+          <span>Heads-Up Poker</span>
+          <strong>ログインして対戦を始める</strong>
+        </div>
+        <form id="loginForm" class="login-form">
+          <input id="nameInput" autocomplete="username" placeholder="ユーザー名" required minlength="2" />
+          <input id="passwordInput" autocomplete="current-password" type="password" placeholder="パスワード" required minlength="4" />
+          <button class="primary" type="submit">入る</button>
+        </form>
+      </section>
+
+      <section id="mainView" class="hidden">
+        <header class="topbar">
+          <div>
+            <span class="eyebrow">Logged in</span>
+            <strong id="userName">-</strong>
+          </div>
+          <button id="logoutButton" type="button">Logout</button>
+        </header>
+
+        <section id="lobbyView" class="lobby">
+          <div class="action-grid">
+            <button id="createPvpButton" class="primary" type="button">ユーザー対戦の部屋を作る</button>
+            <button id="createCpuButton" type="button">CPU練習を始める</button>
+          </div>
+          <form id="joinForm" class="join-form">
+            <input id="roomCodeInput" placeholder="部屋コード" maxlength="6" />
+            <button type="submit">参加</button>
+          </form>
+          <section class="history">
+            <div class="section-title">対戦履歴</div>
+            <ol id="historyList"></ol>
+          </section>
+        </section>
+
+        <section id="roomView" class="room hidden">
+          <nav class="roombar">
+            <button id="backButton" type="button">Lobby</button>
+            <div>
+              <span class="eyebrow">Room</span>
+              <strong id="roomCode">------</strong>
+            </div>
+            <button id="copyButton" type="button">Copy</button>
+          </nav>
+
+          <section class="table">
+            <div class="seat top-seat">
+              <div class="seat-meta">
+                <span id="p2Name">Player 2</span>
+                <strong id="p2Stack">1000</strong>
+              </div>
+              <div id="p2Cards" class="cards"></div>
+              <div id="p2Bet" class="chip">Bet 0</div>
+            </div>
+
+            <div class="board">
+              <div id="communityCards" class="cards community"></div>
+              <p id="messageText">Dealで開始</p>
+              <strong id="potText">Pot 0</strong>
+            </div>
+
+            <div class="seat bottom-seat">
+              <div id="p1Bet" class="chip">Bet 0</div>
+              <div id="p1Cards" class="cards"></div>
+              <div class="seat-meta">
+                <span id="p1Name">Player 1</span>
+                <strong id="p1Stack">1000</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="controls">
+            <button id="dealButton" class="primary" type="button">Deal</button>
+            <button id="callButton" type="button">Check</button>
+            <button id="raiseButton" type="button">Bet</button>
+            <button id="foldButton" type="button">Fold</button>
+            <label>
+              <span>Size</span>
+              <input id="raiseInput" type="number" min="20" step="20" value="40" />
+            </label>
+          </section>
+        </section>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
