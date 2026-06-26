@@ -19,6 +19,7 @@ const els = {
   loginView: $("#loginView"),
   mainView: $("#mainView"),
   loginForm: $("#loginForm"),
+  loginIdInput: $("#loginIdInput"),
   nameInput: $("#nameInput"),
   passwordInput: $("#passwordInput"),
   userName: $("#userName"),
@@ -27,6 +28,9 @@ const els = {
   roomView: $("#roomView"),
   createPvpButton: $("#createPvpButton"),
   createCpuButton: $("#createCpuButton"),
+  casualStackInput: $("#casualStackInput"),
+  casualSmallBlindInput: $("#casualSmallBlindInput"),
+  casualBigBlindInput: $("#casualBigBlindInput"),
   joinForm: $("#joinForm"),
   roomCodeInput: $("#roomCodeInput"),
   historyList: $("#historyList"),
@@ -35,6 +39,8 @@ const els = {
   roomCode: $("#roomCode"),
   p1Name: $("#p1Name"),
   p2Name: $("#p2Name"),
+  p1UserId: $("#p1UserId"),
+  p2UserId: $("#p2UserId"),
   p1Stack: $("#p1Stack"),
   p2Stack: $("#p2Stack"),
   p1Cards: $("#p1Cards"),
@@ -43,12 +49,20 @@ const els = {
   p2Bet: $("#p2Bet"),
   communityCards: $("#communityCards"),
   messageText: $("#messageText"),
+  blindText: $("#blindText"),
   potText: $("#potText"),
   dealButton: $("#dealButton"),
   callButton: $("#callButton"),
   raiseButton: $("#raiseButton"),
   foldButton: $("#foldButton"),
   raiseInput: $("#raiseInput"),
+  adminLoginForm: $("#adminLoginForm"),
+  adminPasscodeInput: $("#adminPasscodeInput"),
+  adminRoomForm: $("#adminRoomForm"),
+  tournamentTitleInput: $("#tournamentTitleInput"),
+  tournamentStackInput: $("#tournamentStackInput"),
+  structureInput: $("#structureInput"),
+  adminRoomList: $("#adminRoomList"),
 };
 
 function cardLabel(card) {
@@ -65,10 +79,19 @@ function cardHtml(card) {
 
 function showLoggedIn(user) {
   currentUser = user;
-  els.userName.textContent = user.name;
+  els.userName.textContent = `${user.name} / ${user.login_id}`;
   els.loginView.classList.add("hidden");
   els.mainView.classList.remove("hidden");
   showLobby();
+}
+
+function casualSettings(mode) {
+  return {
+    mode,
+    initial_stack: Number(els.casualStackInput.value) || 1000,
+    small_blind: Number(els.casualSmallBlindInput.value) || 10,
+    big_blind: Number(els.casualBigBlindInput.value) || 20,
+  };
 }
 
 function showLobby() {
@@ -107,13 +130,17 @@ function renderRoom(room) {
   els.p2Stack.textContent = room.p2.stack;
   els.p1Bet.textContent = `Bet ${room.p1.bet}`;
   els.p2Bet.textContent = `Bet ${room.p2.bet}`;
-  els.p2Name.textContent = room.mode === "cpu" ? "CPU" : "Player 2";
+  els.p1Name.textContent = room.p1.user ? room.p1.user.name : "Player 1";
+  els.p2Name.textContent = room.mode === "cpu" ? "CPU" : (room.p2.user ? room.p2.user.name : "Player 2");
+  els.p1UserId.textContent = room.p1.user ? room.p1.user.login_id : "";
+  els.p2UserId.textContent = room.p2.user ? room.p2.user.login_id : "";
   els.p1Cards.innerHTML = room.p1.cards.map(cardHtml).join("");
   els.p2Cards.innerHTML = room.p2.cards.map(cardHtml).join("");
   const board = [...room.community];
   while (board.length < 5 && room.phase !== "idle" && room.phase !== "waiting") board.push(null);
   els.communityCards.innerHTML = board.map(cardHtml).join("");
   els.messageText.textContent = room.message;
+  els.blindText.textContent = room.blinds ? `Level ${room.blinds.level} / ${room.blinds.small_blind}-${room.blinds.big_blind}` : "";
   els.potText.textContent = `Pot ${room.pot}`;
 
   const toCall = Math.max(0, room.current_bet - room[room.viewer_seat].bet);
@@ -135,7 +162,7 @@ els.loginForm.addEventListener("submit", async (event) => {
   try {
     const data = await api("/api/login", {
       method: "POST",
-      body: { name: els.nameInput.value, password: els.passwordInput.value },
+      body: { login_id: els.loginIdInput.value, name: els.nameInput.value, password: els.passwordInput.value },
     });
     showLoggedIn(data.user);
   } catch (error) {
@@ -149,12 +176,12 @@ els.logoutButton.addEventListener("click", async () => {
 });
 
 els.createPvpButton.addEventListener("click", async () => {
-  const data = await api("/api/rooms", { method: "POST", body: { mode: "pvp" } });
+  const data = await api("/api/rooms", { method: "POST", body: casualSettings("pvp") });
   showRoom(data.code);
 });
 
 els.createCpuButton.addEventListener("click", async () => {
-  const data = await api("/api/rooms", { method: "POST", body: { mode: "cpu" } });
+  const data = await api("/api/rooms", { method: "POST", body: casualSettings("cpu") });
   showRoom(data.code);
 });
 
@@ -176,6 +203,43 @@ els.dealButton.addEventListener("click", () => roomAction("deal"));
 els.callButton.addEventListener("click", () => roomAction("call"));
 els.raiseButton.addEventListener("click", () => roomAction("raise", { amount: Number(els.raiseInput.value) || 40 }));
 els.foldButton.addEventListener("click", () => roomAction("fold"));
+
+els.adminLoginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await api("/api/admin/login", { method: "POST", body: { passcode: els.adminPasscodeInput.value } });
+    els.adminRoomForm.classList.remove("hidden");
+    loadAdminRooms();
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
+async function loadAdminRooms() {
+  const data = await api("/api/admin/rooms");
+  els.adminRoomList.innerHTML = data.rooms.map((room) => {
+    const title = room.settings.title || room.code;
+    return `<li>${title} / ${room.code} / ${room.phase} / ${room.settings.initial_stack}</li>`;
+  }).join("");
+}
+
+els.adminRoomForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const data = await api("/api/admin/rooms", {
+      method: "POST",
+      body: {
+        title: els.tournamentTitleInput.value,
+        initial_stack: Number(els.tournamentStackInput.value) || 1000,
+        structure: els.structureInput.value,
+      },
+    });
+    await loadAdminRooms();
+    showRoom(data.code);
+  } catch (error) {
+    alert(error.message);
+  }
+});
 
 api("/api/me").then((data) => {
   if (data.user) showLoggedIn(data.user);

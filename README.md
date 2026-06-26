@@ -54,8 +54,13 @@ Environment:
   HOST=0.0.0.0
   PORT=8765
   DATA_DIR=/data
+  ADMIN_PASSCODE=好きな管理者パスコード
 ```
 
-Renderに置く場合は、このフォルダの `render.yaml` を使えます。データ保存用に `/data` のディスクを使う設定になっています。
+Renderに置く場合は、このフォルダの `render.yaml` を使えます。現在の設定はカード登録なしで試しやすいように、データ保存先を `/tmp` にしています。
+
+注意: `/tmp` は再起動や再デプロイで履歴が消える可能性があります。本番運用で履歴を残す場合は、RenderのPersistent Diskを追加して `DATA_DIR=/data` に変更してください。
+
+管理者画面はロビーの「管理者」から入ります。RenderのEnvironment Variablesで `ADMIN_PASSCODE` を設定すると、そのパスコードで大会部屋を作成できます。未設定の場合は `admin1234` です。
 
 公開後は、発行されたURLを知っている人がログイン画面にアクセスできます。ユーザー名とパスワードを入力するとアカウントが作られ、対戦履歴はサーバー側の `poker.db` に残ります。

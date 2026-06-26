@@ -14,7 +14,8 @@
           <strong>ログインして対戦を始める</strong>
         </div>
         <form id="loginForm" class="login-form">
-          <input id="nameInput" autocomplete="username" placeholder="ユーザー名" required minlength="2" />
+          <input id="loginIdInput" autocomplete="username" placeholder="ユーザーID" required minlength="2" />
+          <input id="nameInput" placeholder="表示名" required minlength="2" />
           <input id="passwordInput" autocomplete="current-password" type="password" placeholder="パスワード" required minlength="4" />
           <button class="primary" type="submit">入る</button>
         </form>
@@ -34,10 +35,48 @@
             <button id="createPvpButton" class="primary" type="button">ユーザー対戦の部屋を作る</button>
             <button id="createCpuButton" type="button">CPU練習を始める</button>
           </div>
+          <section class="settings-panel">
+            <div class="section-title">通常部屋の設定</div>
+            <label>
+              <span>初期点</span>
+              <input id="casualStackInput" type="number" min="100" step="100" value="1000" />
+            </label>
+            <label>
+              <span>SB</span>
+              <input id="casualSmallBlindInput" type="number" min="1" step="5" value="10" />
+            </label>
+            <label>
+              <span>BB</span>
+              <input id="casualBigBlindInput" type="number" min="2" step="10" value="20" />
+            </label>
+          </section>
           <form id="joinForm" class="join-form">
             <input id="roomCodeInput" placeholder="部屋コード" maxlength="6" />
             <button type="submit">参加</button>
           </form>
+          <section class="admin-panel">
+            <div class="section-title">管理者</div>
+            <form id="adminLoginForm" class="admin-login">
+              <input id="adminPasscodeInput" type="password" placeholder="管理者パスコード" />
+              <button type="submit">管理者ログイン</button>
+            </form>
+            <form id="adminRoomForm" class="admin-room hidden">
+              <input id="tournamentTitleInput" placeholder="大会名" />
+              <label>
+                <span>初期点</span>
+                <input id="tournamentStackInput" type="number" min="100" step="100" value="1000" />
+              </label>
+              <label>
+                <span>ストラクチャー</span>
+                <textarea id="structureInput" rows="4">10/20
+20/40
+30/60
+50/100</textarea>
+              </label>
+              <button class="primary" type="submit">大会部屋を作成</button>
+            </form>
+            <ol id="adminRoomList" class="admin-room-list"></ol>
+          </section>
           <section class="history">
             <div class="section-title">対戦履歴</div>
             <ol id="historyList"></ol>
@@ -58,6 +97,7 @@
             <div class="seat top-seat">
               <div class="seat-meta">
                 <span id="p2Name">Player 2</span>
+                <small id="p2UserId"></small>
                 <strong id="p2Stack">1000</strong>
               </div>
               <div id="p2Cards" class="cards"></div>
@@ -67,6 +107,7 @@
             <div class="board">
               <div id="communityCards" class="cards community"></div>
               <p id="messageText">Dealで開始</p>
+              <span id="blindText"></span>
               <strong id="potText">Pot 0</strong>
             </div>
 
@@ -75,6 +116,7 @@
               <div id="p1Cards" class="cards"></div>
               <div class="seat-meta">
                 <span id="p1Name">Player 1</span>
+                <small id="p1UserId"></small>
                 <strong id="p1Stack">1000</strong>
               </div>
             </div>

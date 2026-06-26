@@ -100,7 +100,9 @@ input {
 .topbar,
 .roombar,
 .history,
-.controls {
+.controls,
+.settings-panel,
+.admin-panel {
   background: rgba(19, 25, 27, 0.86);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -154,6 +156,56 @@ input {
   padding: 12px;
 }
 
+.settings-panel,
+.admin-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.settings-panel {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.settings-panel .section-title,
+.admin-panel .section-title {
+  grid-column: 1 / -1;
+}
+
+.settings-panel label,
+.admin-room label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.admin-login,
+.admin-room {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-login {
+  grid-template-columns: 1fr auto;
+}
+
+textarea {
+  min-height: 110px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  padding: 12px;
+  color: var(--text);
+  background: #101416;
+  resize: vertical;
+  font: inherit;
+}
+
+.admin-room-list {
+  margin: 0;
+  padding-left: 22px;
+  color: var(--muted);
+}
+
 .history {
   padding: 12px;
 }
@@ -198,13 +250,19 @@ input {
 .seat-meta {
   width: min(280px, 94%);
   min-height: 52px;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
+  column-gap: 12px;
   padding: 8px 14px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.26);
   border: 1px solid rgba(255, 255, 255, 0.13);
+}
+
+.seat-meta small {
+  grid-column: 1;
+  color: var(--muted);
 }
 
 .cards {
@@ -290,6 +348,12 @@ input {
   color: var(--gold);
 }
 
+#blindText {
+  min-height: 24px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .controls {
   min-height: 76px;
   display: grid;
@@ -314,8 +378,14 @@ input {
 
   .action-grid,
   .join-form,
+  .settings-panel,
+  .admin-login,
   .controls {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .settings-panel label:first-of-type {
+    grid-column: 1 / -1;
   }
 
   .controls label {
