@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", str(ROOT)))
 DB_PATH = Path(os.environ.get("DB_PATH", str(DATA_DIR / "poker.db")))
 SESSION_COOKIE = "hu_poker_session"
+ADMIN_COOKIE = "hu_poker_admin"
+ADMIN_PASSCODE = os.environ.get("ADMIN_PASSCODE", "admin1234")
 SMALL_BLIND = 10
 BIG_BLIND = 20
 STARTING_STACK = 1000
@@ -36,6 +38,7 @@ def init_db():
             """
             create table if not exists users (
               id integer primary key autoincrement,
+              login_id text not null unique default '',
               name text not null unique,
               password_hash text not null,
               created_at integer not null
@@ -75,6 +78,16 @@ def init_db():
             );
             """
         )
+        ensure_column(conn, "users", "login_id", "text not null default ''")
+        rows = conn.execute("select id, name from users where login_id = ''").fetchall()
+        for row in rows:
+            conn.execute("update users set login_id = ? where id = ?", (f"user{row['id']}", row["id"]))
+
+
+def ensure_column(conn, table, column, definition):
+    columns = [row["name"] for row in conn.execute(f"pragma table_info({table})").fetchall()]
+    if column not in columns:
+        conn.execute(f"alter table {table} add column {column} {definition}")
 
 
 def now():
@@ -94,7 +107,17 @@ def verify_password(password, stored):
 
 
 def public_user(row):
-    return {"id": row["id"], "name": row["name"]}
+    return {"id": row["id"], "login_id": row["login_id"], "name": row["name"]}
+
+
+def user_lookup(ids):
+    clean_ids = sorted({int(user_id) for user_id in ids if user_id})
+    if not clean_ids:
+        return {}
+    placeholders = ",".join("?" for _ in clean_ids)
+    with db() as conn:
+        rows = conn.execute(f"select id, login_id, name from users where id in ({placeholders})", clean_ids).fetchall()
+    return {row["id"]: public_user(row) for row in rows}
 
 
 def make_deck():
@@ -108,22 +131,88 @@ def card_label(card):
     return f'{card["rank"]}{suit}'
 
 
-def fresh_state(mode, player1_id, player2_id=None):
+def admin_token():
+    return hmac.new(ADMIN_PASSCODE.encode(), b"heads-up-poker-admin", hashlib.sha256).hexdigest()
+
+
+def int_setting(value, default, minimum, maximum):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(maximum, parsed))
+
+
+def normalize_structure(raw, small_blind=SMALL_BLIND, big_blind=BIG_BLIND):
+    if isinstance(raw, str):
+        rows = [row.strip() for row in raw.replace(",", "\n").splitlines() if row.strip()]
+        parsed = []
+        for row in rows:
+            parts = row.replace("-", "/").split("/")
+            if len(parts) >= 2:
+                parsed.append({
+                    "small_blind": int_setting(parts[0], small_blind, 1, 100000),
+                    "big_blind": int_setting(parts[1], big_blind, 2, 200000),
+                })
+        return parsed or [{"small_blind": small_blind, "big_blind": big_blind}]
+    if isinstance(raw, list):
+        parsed = []
+        for row in raw[:20]:
+            if isinstance(row, dict):
+                parsed.append({
+                    "small_blind": int_setting(row.get("small_blind"), small_blind, 1, 100000),
+                    "big_blind": int_setting(row.get("big_blind"), big_blind, 2, 200000),
+                })
+        return parsed or [{"small_blind": small_blind, "big_blind": big_blind}]
+    return [{"small_blind": small_blind, "big_blind": big_blind}]
+
+
+def room_settings(data=None):
+    data = data or {}
+    initial_stack = int_setting(data.get("initial_stack"), STARTING_STACK, 100, 1000000)
+    small_blind = int_setting(data.get("small_blind"), SMALL_BLIND, 1, 100000)
+    big_blind = int_setting(data.get("big_blind"), BIG_BLIND, small_blind * 2, 200000)
+    structure = normalize_structure(data.get("structure"), small_blind, big_blind)
+    return {
+        "initial_stack": initial_stack,
+        "small_blind": small_blind,
+        "big_blind": big_blind,
+        "structure": structure,
+        "room_type": data.get("room_type", "casual"),
+        "title": (data.get("title") or "").strip()[:40],
+    }
+
+
+def current_blinds(state):
+    structure = state.get("settings", {}).get("structure") or []
+    level = min(max(state.get("hand", 0), 0), max(len(structure) - 1, 0))
+    row = structure[level] if structure else {}
+    return {
+        "small_blind": int_setting(row.get("small_blind"), state.get("settings", {}).get("small_blind", SMALL_BLIND), 1, 100000),
+        "big_blind": int_setting(row.get("big_blind"), state.get("settings", {}).get("big_blind", BIG_BLIND), 2, 200000),
+        "level": level + 1,
+    }
+
+
+def fresh_state(mode, player1_id, player2_id=None, settings=None):
+    settings = room_settings(settings)
+    waiting = mode == "pvp" and (not player1_id or not player2_id)
     return {
         "mode": mode,
         "hand": 0,
         "dealer": "p1",
         "actor": "p1",
-        "phase": "waiting" if mode == "pvp" and not player2_id else "idle",
+        "phase": "waiting" if waiting else "idle",
         "deck": [],
         "community": [],
-        "p1": {"user_id": player1_id, "stack": STARTING_STACK, "cards": [], "bet": 0, "folded": False},
-        "p2": {"user_id": player2_id, "stack": STARTING_STACK, "cards": [], "bet": 0, "folded": False},
+        "p1": {"user_id": player1_id, "stack": settings["initial_stack"], "cards": [], "bet": 0, "folded": False},
+        "p2": {"user_id": player2_id, "stack": settings["initial_stack"], "cards": [], "bet": 0, "folded": False},
         "pot": 0,
         "current_bet": 0,
         "acted": {"p1": False, "p2": False},
         "showdown": False,
-        "message": "対戦相手を待っています" if mode == "pvp" and not player2_id else "Dealで開始",
+        "settings": settings,
+        "message": "参加者を待っています" if waiting else "Dealで開始",
         "last_result": "",
     }
 
@@ -157,9 +246,11 @@ def other(seat):
 def start_hand(state):
     if state["phase"] == "waiting":
         raise ValueError("まだ対戦相手が参加していません")
+    blinds = current_blinds(state)
+    initial_stack = state.get("settings", {}).get("initial_stack", STARTING_STACK)
     if state["p1"]["stack"] <= 0 or state["p2"]["stack"] <= 0:
-        state["p1"]["stack"] = STARTING_STACK
-        state["p2"]["stack"] = STARTING_STACK
+        state["p1"]["stack"] = initial_stack
+        state["p2"]["stack"] = initial_stack
     state["hand"] += 1
     state["phase"] = "preflop"
     state["deck"] = make_deck()
@@ -173,12 +264,12 @@ def start_hand(state):
     state["last_result"] = ""
     clean_bets(state)
     if state["dealer"] == "p1":
-        commit_bet(state, "p1", SMALL_BLIND)
-        commit_bet(state, "p2", BIG_BLIND)
+        commit_bet(state, "p1", blinds["small_blind"])
+        commit_bet(state, "p2", blinds["big_blind"])
         state["actor"] = "p1"
     else:
-        commit_bet(state, "p2", SMALL_BLIND)
-        commit_bet(state, "p1", BIG_BLIND)
+        commit_bet(state, "p2", blinds["small_blind"])
+        commit_bet(state, "p1", blinds["big_blind"])
         state["actor"] = "p2"
     state["message"] = f'{seat_name(state, state["actor"])}のアクションです'
 
@@ -228,7 +319,7 @@ def action(state, seat, kind, amount=0):
         state["message"] = f'{seat_name(state, seat)}が{"コール" if to_call else "チェック"}'
     if kind == "raise":
         was_open_bet = state["current_bet"] == 0
-        target = max(state["current_bet"] + BIG_BLIND, int(amount))
+        target = max(state["current_bet"] + current_blinds(state)["big_blind"], int(amount))
         commit_bet(state, seat, target - state[seat]["bet"])
         state["acted"][seat] = True
         state["acted"][other(seat)] = False
@@ -240,20 +331,22 @@ def action(state, seat, kind, amount=0):
 
 
 def cpu_action(state):
-    if state["mode"] != "cpu" or state["actor"] != "p2" or state["phase"] in ("idle", "complete"):
-        return
-    to_call = max(0, state["current_bet"] - state["p2"]["bet"])
-    strength = estimate_strength(state["p2"]["cards"], state["community"])
-    roll = secrets.randbelow(100) / 100
-    if to_call and strength + roll * 0.35 < 0.34:
-        award_pot(state, "p1", "CPUがフォールド。Player 1の勝ち")
-    elif to_call:
-        action(state, "p2", "call")
-    elif strength > 0.58 and roll > 0.45:
-        size = max(BIG_BLIND, round(max(state["pot"], BIG_BLIND) * 0.55 / 20) * 20)
-        action(state, "p2", "raise", size)
-    else:
-        action(state, "p2", "call")
+    for _ in range(8):
+        if state["mode"] != "cpu" or state["actor"] != "p2" or state["phase"] in ("idle", "complete"):
+            return
+        to_call = max(0, state["current_bet"] - state["p2"]["bet"])
+        strength = estimate_strength(state["p2"]["cards"], state["community"])
+        roll = secrets.randbelow(100) / 100
+        if to_call and strength + roll * 0.35 < 0.34:
+            award_pot(state, "p1", "CPUがフォールド。Player 1の勝ち")
+        elif to_call:
+            action(state, "p2", "call")
+        elif strength > 0.58 and roll > 0.45:
+            big_blind = current_blinds(state)["big_blind"]
+            size = max(big_blind, round(max(state["pot"], big_blind) * 0.55 / 20) * 20)
+            action(state, "p2", "raise", size)
+        else:
+            action(state, "p2", "call")
 
 
 def estimate_strength(cards, community):
@@ -436,6 +529,14 @@ class Handler(BaseHTTPRequestHandler):
             elif method == "GET" and path == "/api/me":
                 user = self.current_user()
                 self.write_json({"user": public_user(user) if user else None})
+            elif method == "POST" and path == "/api/admin/login":
+                self.admin_login()
+            elif method == "POST" and path == "/api/admin/logout":
+                self.admin_logout()
+            elif method == "GET" and path == "/api/admin/rooms":
+                self.admin_rooms()
+            elif method == "POST" and path == "/api/admin/rooms":
+                self.admin_create_room()
             elif method == "POST" and path == "/api/rooms":
                 self.create_room()
             elif method == "POST" and path == "/api/join":
@@ -458,20 +559,21 @@ class Handler(BaseHTTPRequestHandler):
 
     def login(self):
         data = self.read_json()
-        name = (data.get("name") or "").strip()[:24]
+        login_id = (data.get("login_id") or data.get("name") or "").strip()[:24]
+        name = (data.get("name") or login_id).strip()[:24]
         password = data.get("password") or ""
-        if len(name) < 2 or len(password) < 4:
-            raise ValueError("名前は2文字以上、パスワードは4文字以上にしてください")
+        if len(login_id) < 2 or len(password) < 4:
+            raise ValueError("IDは2文字以上、パスワードは4文字以上にしてください")
         with db() as conn:
-            user = conn.execute("select * from users where name = ?", (name,)).fetchone()
+            user = conn.execute("select * from users where login_id = ?", (login_id,)).fetchone()
             if user and not verify_password(password, user["password_hash"]):
                 raise ValueError("パスワードが違います")
             if not user:
                 conn.execute(
-                    "insert into users(name, password_hash, created_at) values(?, ?, ?)",
-                    (name, password_hash(password), now()),
+                    "insert into users(login_id, name, password_hash, created_at) values(?, ?, ?, ?)",
+                    (login_id, name, password_hash(password), now()),
                 )
-                user = conn.execute("select * from users where name = ?", (name,)).fetchone()
+                user = conn.execute("select * from users where login_id = ?", (login_id,)).fetchone()
             token = secrets.token_urlsafe(32)
             conn.execute("insert into sessions(token, user_id, created_at) values(?, ?, ?)", (token, user["id"], now()))
         morsel = cookies.SimpleCookie()
@@ -480,6 +582,30 @@ class Handler(BaseHTTPRequestHandler):
         morsel[SESSION_COOKIE]["httponly"] = True
         morsel[SESSION_COOKIE]["samesite"] = "Lax"
         self.write_json({"user": public_user(user)}, extra_headers={"set-cookie": morsel.output(header="").strip()})
+
+    def is_admin(self):
+        raw = self.headers.get("cookie", "")
+        jar = cookies.SimpleCookie(raw)
+        token = jar.get(ADMIN_COOKIE)
+        return bool(token and hmac.compare_digest(token.value, admin_token()))
+
+    def require_admin(self):
+        if not self.is_admin():
+            raise PermissionError("管理者ログインが必要です")
+
+    def admin_login(self):
+        passcode = self.read_json().get("passcode") or ""
+        if not hmac.compare_digest(passcode, ADMIN_PASSCODE):
+            raise PermissionError("管理者パスコードが違います")
+        morsel = cookies.SimpleCookie()
+        morsel[ADMIN_COOKIE] = admin_token()
+        morsel[ADMIN_COOKIE]["path"] = "/"
+        morsel[ADMIN_COOKIE]["httponly"] = True
+        morsel[ADMIN_COOKIE]["samesite"] = "Lax"
+        self.write_json({"admin": True}, extra_headers={"set-cookie": morsel.output(header="").strip()})
+
+    def admin_logout(self):
+        self.write_json({"ok": True}, extra_headers={"set-cookie": f"{ADMIN_COOKIE}=; Path=/; Max-Age=0"})
 
     def logout(self):
         user = self.current_user()
@@ -498,7 +624,7 @@ class Handler(BaseHTTPRequestHandler):
         mode = data.get("mode") if data.get("mode") in ("pvp", "cpu") else "pvp"
         code = secrets.token_hex(3).upper()
         player2_id = None if mode == "pvp" else 0
-        state = fresh_state(mode, user["id"], player2_id)
+        state = fresh_state(mode, user["id"], player2_id, room_settings(data))
         with db() as conn:
             conn.execute(
                 """
@@ -508,6 +634,44 @@ class Handler(BaseHTTPRequestHandler):
                 (code, mode, "open", user["id"], user["id"], player2_id, json.dumps(state), now(), now()),
             )
         self.write_json({"code": code})
+
+    def admin_create_room(self):
+        self.require_admin()
+        data = self.read_json()
+        code = secrets.token_hex(3).upper()
+        settings = room_settings({
+            **data,
+            "room_type": "tournament",
+        })
+        state = fresh_state("pvp", None, None, settings)
+        with db() as conn:
+            conn.execute(
+                """
+                insert into rooms(code, mode, status, owner_id, player1_id, player2_id, state_json, created_at, updated_at)
+                values(?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (code, "pvp", "tournament", 0, 0, None, json.dumps(state), now(), now()),
+            )
+        self.write_json({"code": code})
+
+    def admin_rooms(self):
+        self.require_admin()
+        with db() as conn:
+            rows = conn.execute(
+                "select code, mode, status, state_json, created_at, updated_at from rooms order by updated_at desc limit 50"
+            ).fetchall()
+        rooms = []
+        for row in rows:
+            state = json.loads(row["state_json"])
+            rooms.append({
+                "code": row["code"],
+                "mode": row["mode"],
+                "status": row["status"],
+                "phase": state.get("phase"),
+                "settings": state.get("settings", {}),
+                "message": state.get("message", ""),
+            })
+        self.write_json({"rooms": rooms})
 
     def join_room(self):
         user = self.require_user()
@@ -524,12 +688,18 @@ class Handler(BaseHTTPRequestHandler):
             if room["player2_id"]:
                 raise ValueError("この部屋は満席です")
             state = json.loads(room["state_json"])
-            state["p2"]["user_id"] = user["id"]
-            state["phase"] = "idle"
-            state["message"] = "Dealで開始"
+            if not state["p1"].get("user_id"):
+                state["p1"]["user_id"] = user["id"]
+                state["message"] = "もう1人の参加者を待っています"
+            elif not state["p2"].get("user_id"):
+                state["p2"]["user_id"] = user["id"]
+                state["phase"] = "idle"
+                state["message"] = "Dealで開始"
+            else:
+                raise ValueError("この部屋は満席です")
             conn.execute(
-                "update rooms set player2_id = ?, state_json = ?, updated_at = ? where code = ?",
-                (user["id"], json.dumps(state), now(), code),
+                "update rooms set player1_id = ?, player2_id = ?, state_json = ?, updated_at = ? where code = ?",
+                (state["p1"].get("user_id") or 0, state["p2"].get("user_id"), json.dumps(state), now(), code),
             )
         self.write_json({"code": code})
 
@@ -541,7 +711,7 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("部屋が見つかりません")
         if room["mode"] == "cpu" and room["player1_id"] != user["id"]:
             raise PermissionError("この部屋には参加していません")
-        if room["mode"] == "pvp" and room["player1_id"] != user["id"] and room["player2_id"] != user["id"]:
+        if room["mode"] == "pvp" and room["player1_id"] != user["id"] and room["player2_id"] != user["id"] and not self.is_admin():
             raise PermissionError("この部屋には参加していません")
         return user, room, json.loads(room["state_json"])
 
@@ -598,15 +768,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def public_room(self, room, state, viewer_id):
         visible = json.loads(json.dumps(state))
-        viewer_seat = "p1" if room["player1_id"] == viewer_id else "p2"
+        viewer_seat = "p1" if state["p1"].get("user_id") == viewer_id else "p2"
+        users = user_lookup([state["p1"].get("user_id"), state["p2"].get("user_id")])
         for seat in ("p1", "p2"):
             if not state["showdown"] and seat != viewer_seat and not (state["mode"] == "cpu" and seat == "p2"):
                 visible[seat]["cards"] = [{"hidden": True}, {"hidden": True}] if state[seat]["cards"] else []
             if state["mode"] == "cpu" and seat == "p2" and not state["showdown"]:
                 visible[seat]["cards"] = [{"hidden": True}, {"hidden": True}] if state[seat]["cards"] else []
+            visible[seat]["user"] = users.get(state[seat].get("user_id"))
         visible["viewer_seat"] = viewer_seat
         visible["can_act"] = state["actor"] == viewer_seat and state["phase"] not in ("idle", "waiting", "complete")
         visible["code"] = room["code"]
+        visible["status"] = room["status"]
+        visible["blinds"] = current_blinds(state)
         return visible
 
     def history(self):
