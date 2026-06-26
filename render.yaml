@@ -3,10 +3,6 @@ services:
     name: heads-up-poker
     env: docker
     autoDeploy: true
-    disk:
-      name: poker-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: DATA_DIR
-        value: /data
+        value: /tmp
