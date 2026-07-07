@@ -263,7 +263,7 @@ input {
 }
 
 .settings-panel {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
 }
 
 .settings-panel .section-title,
@@ -276,6 +276,16 @@ input {
   display: grid;
   gap: 6px;
   color: var(--muted);
+}
+
+.toggle-setting {
+  align-content: center;
+}
+
+.toggle-setting input {
+  width: 28px;
+  height: 28px;
+  accent-color: var(--gold);
 }
 
 .admin-login,
@@ -318,6 +328,40 @@ textarea {
 
 .history li {
   padding: 5px 0;
+}
+
+.history-entry {
+  list-style: none;
+}
+
+.history-entry details {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.history-entry summary {
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.history-entry summary span,
+.history-actions small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.history-actions {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.history-actions li {
+  display: grid;
+  gap: 2px;
 }
 
 .room {
@@ -461,7 +505,7 @@ textarea {
 .controls {
   min-height: 76px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(92px, auto)) minmax(170px, 1fr);
+  grid-template-columns: repeat(5, minmax(82px, auto)) minmax(170px, 1fr);
   gap: 10px;
   align-items: center;
   padding: 12px;

@@ -34,6 +34,7 @@ const els = {
   casualSmallBlindInput: $("#casualSmallBlindInput"),
   casualBigBlindInput: $("#casualBigBlindInput"),
   casualLevelMinutesInput: $("#casualLevelMinutesInput"),
+  casualTimerInput: $("#casualTimerInput"),
   joinForm: $("#joinForm"),
   roomCodeInput: $("#roomCodeInput"),
   historyList: $("#historyList"),
@@ -59,6 +60,7 @@ const els = {
   dealButton: $("#dealButton"),
   callButton: $("#callButton"),
   raiseButton: $("#raiseButton"),
+  allInButton: $("#allInButton"),
   foldButton: $("#foldButton"),
   raiseInput: $("#raiseInput"),
   raiseValue: $("#raiseValue"),
@@ -67,6 +69,7 @@ const els = {
   adminRoomForm: $("#adminRoomForm"),
   tournamentTitleInput: $("#tournamentTitleInput"),
   tournamentStackInput: $("#tournamentStackInput"),
+  tournamentTimerInput: $("#tournamentTimerInput"),
   structureInput: $("#structureInput"),
   adminRoomList: $("#adminRoomList"),
 };
@@ -129,6 +132,8 @@ function casualSettings(mode) {
     small_blind: Number(els.casualSmallBlindInput.value) || 10,
     big_blind: Number(els.casualBigBlindInput.value) || 20,
     level_minutes: Number(els.casualLevelMinutesInput.value) || 15,
+    hand_timer_enabled: els.casualTimerInput.checked,
+    hand_seconds: 30,
   };
 }
 
@@ -159,8 +164,41 @@ function showRoom(code) {
 async function loadHistory() {
   const data = await api("/api/history");
   els.historyList.innerHTML = data.history.length
-    ? data.history.map((row) => `<li>${row.result} / ${row.mode.toUpperCase()} / 部屋 ${row.room_code}</li>`).join("")
+    ? data.history.map(historyItemHtml).join("")
     : "<li>まだ履歴がありません</li>";
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[char]));
+}
+
+function historyItemHtml(row) {
+  const actions = Array.isArray(row.action_log) ? row.action_log : [];
+  const detail = actions.length
+    ? actions.map((action) => `
+        <li>
+          <span>${escapeHtml(action.text)}</span>
+          <small>ポット ${escapeHtml(action.pot)} / P1 ${escapeHtml(action.p1_stack)}点 / P2 ${escapeHtml(action.p2_stack)}点</small>
+        </li>
+      `).join("")
+    : "<li><span>この履歴には詳細がありません</span></li>";
+  return `
+    <li class="history-entry">
+      <details>
+        <summary>
+          <strong>${escapeHtml(row.result)}</strong>
+          <span>${escapeHtml(row.mode).toUpperCase()} / 部屋 ${escapeHtml(row.room_code)} / Hand ${escapeHtml(row.hand_number)}</span>
+        </summary>
+        <ol class="history-actions">${detail}</ol>
+      </details>
+    </li>
+  `;
 }
 
 async function pollRoom() {
@@ -188,7 +226,7 @@ function renderRoom(room) {
   els.communityCards.innerHTML = board.map(cardHtml).join("");
   els.messageText.textContent = room.message;
   els.blindText.textContent = room.blinds
-    ? `Level ${room.blinds.level} / ${room.blinds.small_blind}-${room.blinds.big_blind} / ${formatClock(room.blinds.remaining_seconds)}`
+    ? `Level ${room.blinds.level} / ${room.blinds.small_blind}-${room.blinds.big_blind} / ${formatClock(room.blinds.remaining_seconds)}${room.action_timer ? ` / 手番 ${room.action_timer.remaining_seconds}秒` : ""}`
     : "";
   els.potText.textContent = `ポット ${room.pot}`;
 
@@ -209,10 +247,12 @@ function renderRoom(room) {
   els.dealButton.textContent = room.phase === "waiting" ? "参加待ち" : (room.phase === "complete" ? "次のハンド" : "始める");
   els.callButton.disabled = !room.can_act;
   els.raiseButton.disabled = !room.can_act;
+  els.allInButton.disabled = !room.can_act || viewer.stack <= 0;
   els.foldButton.disabled = !room.can_act || !toCall;
   els.raiseInput.disabled = !room.can_act;
   els.callButton.textContent = toCall ? `コール ${toCall}` : "チェック";
   els.raiseButton.textContent = room.current_bet ? `レイズ ${els.raiseInput.value}` : `ベット ${els.raiseInput.value}`;
+  els.allInButton.textContent = `オールイン ${viewer.stack + viewer.bet}`;
   els.foldButton.textContent = "フォールド";
 }
 
@@ -288,6 +328,7 @@ els.copyButton.addEventListener("click", async () => {
 els.dealButton.addEventListener("click", () => roomAction("deal"));
 els.callButton.addEventListener("click", () => roomAction("call"));
 els.raiseButton.addEventListener("click", () => roomAction("raise", { amount: Number(els.raiseInput.value) || 40 }));
+els.allInButton.addEventListener("click", () => roomAction("allin"));
 els.foldButton.addEventListener("click", () => roomAction("fold"));
 els.raiseInput.addEventListener("input", () => {
   els.raiseValue.textContent = els.raiseInput.value;
@@ -321,6 +362,8 @@ els.adminRoomForm.addEventListener("submit", async (event) => {
       body: {
         title: els.tournamentTitleInput.value,
         initial_stack: Number(els.tournamentStackInput.value) || 1000,
+        hand_timer_enabled: els.tournamentTimerInput.checked,
+        hand_seconds: 30,
         structure: els.structureInput.value,
       },
     });

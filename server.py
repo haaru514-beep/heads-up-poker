@@ -74,6 +74,7 @@ def init_db():
               winner_id integer,
               winner_name text not null,
               result text not null,
+              action_log text not null default '[]',
               hand_number integer not null,
               created_at integer not null
             );
@@ -81,6 +82,7 @@ def init_db():
         )
         ensure_column(conn, "users", "login_id", "text not null default ''")
         ensure_column(conn, "users", "icon_data", "text not null default ''")
+        ensure_column(conn, "matches", "action_log", "text not null default '[]'")
         rows = conn.execute("select id, name from users where login_id = ''").fetchall()
         for row in rows:
             conn.execute("update users set login_id = ? where id = ?", (f"user{row['id']}", row["id"]))
@@ -190,6 +192,8 @@ def room_settings(data=None):
         "big_blind": big_blind,
         "level_minutes": level_minutes,
         "structure": structure,
+        "hand_timer_enabled": bool(data.get("hand_timer_enabled")),
+        "hand_seconds": int_setting(data.get("hand_seconds"), 30, 10, 300),
         "room_type": data.get("room_type", "casual"),
         "title": (data.get("title") or "").strip()[:40],
     }
@@ -238,8 +242,11 @@ def fresh_state(mode, player1_id, player2_id=None, settings=None):
         "showdown": False,
         "settings": settings,
         "level_started_at": None,
+        "hand_started_at": None,
+        "action_started_at": None,
         "message": "参加者を待っています" if waiting else "始めるを押してください",
         "last_result": "",
+        "action_log": [],
     }
 
 
@@ -290,6 +297,8 @@ def start_hand(state):
     state["pot"] = 0
     state["showdown"] = False
     state["last_result"] = ""
+    state["action_log"] = []
+    state["hand_started_at"] = now()
     clean_bets(state)
     if state["dealer"] == "p1":
         commit_bet(state, "p1", blinds["small_blind"])
@@ -300,6 +309,9 @@ def start_hand(state):
         commit_bet(state, "p1", blinds["big_blind"])
         state["actor"] = "p2"
     state["message"] = f'{seat_name(state, state["actor"])}のアクションです'
+    add_action_log(state, f'ハンド開始 / SB {blinds["small_blind"]} / BB {blinds["big_blind"]}')
+    add_action_log(state, f'ブラインド: Player 1 {state["p1"]["bet"]} / {seat_name(state, "p2")} {state["p2"]["bet"]}')
+    reset_action_timer(state)
 
 
 def next_street(state):
@@ -308,16 +320,20 @@ def next_street(state):
     if state["phase"] == "preflop":
         state["community"].extend(draw(state, 3))
         state["phase"] = "flop"
+        add_action_log(state, f'フロップ: {" ".join(card_label(card) for card in state["community"])}')
     elif state["phase"] == "flop":
         state["community"].extend(draw(state, 1))
         state["phase"] = "turn"
+        add_action_log(state, f'ターン: {card_label(state["community"][-1])}')
     elif state["phase"] == "turn":
         state["community"].extend(draw(state, 1))
         state["phase"] = "river"
+        add_action_log(state, f'リバー: {card_label(state["community"][-1])}')
     else:
         finish_showdown(state)
         return
     state["message"] = f'{seat_name(state, state["actor"])}のアクションです'
+    reset_action_timer(state)
 
 
 def can_close(state):
@@ -330,6 +346,49 @@ def seat_name(state, seat):
     return "Player 1" if seat == "p1" else "Player 2"
 
 
+def add_action_log(state, text):
+    state.setdefault("action_log", []).append({
+        "hand": state.get("hand", 0),
+        "phase": state.get("phase", ""),
+        "pot": state.get("pot", 0),
+        "current_bet": state.get("current_bet", 0),
+        "p1_stack": state.get("p1", {}).get("stack", 0),
+        "p2_stack": state.get("p2", {}).get("stack", 0),
+        "p1_bet": state.get("p1", {}).get("bet", 0),
+        "p2_bet": state.get("p2", {}).get("bet", 0),
+        "text": text,
+    })
+
+
+def reset_action_timer(state):
+    if state.get("settings", {}).get("hand_timer_enabled") and state["phase"] not in ("idle", "waiting", "complete"):
+        state["action_started_at"] = now()
+    else:
+        state["action_started_at"] = None
+
+
+def action_timer(state):
+    if not state.get("settings", {}).get("hand_timer_enabled"):
+        return None
+    if state["phase"] in ("idle", "waiting", "complete"):
+        return None
+    seconds = int_setting(state.get("settings", {}).get("hand_seconds"), 30, 10, 300)
+    started = int(state.get("action_started_at") or now())
+    remaining = max(0, seconds - (now() - started))
+    return {"seconds": seconds, "remaining_seconds": remaining, "actor": state.get("actor")}
+
+
+def apply_action_timer(state):
+    timer = action_timer(state)
+    if not timer or timer["remaining_seconds"] > 0:
+        return False
+    seat = state["actor"]
+    to_call = max(0, state["current_bet"] - state[seat]["bet"])
+    add_action_log(state, f'{seat_name(state, seat)} 時間切れ')
+    action(state, seat, "fold" if to_call else "call")
+    return True
+
+
 def action(state, seat, kind, amount=0):
     if state["phase"] in ("idle", "waiting", "complete"):
         raise ValueError("今はアクションできません")
@@ -338,6 +397,7 @@ def action(state, seat, kind, amount=0):
     if kind == "fold":
         winner = other(seat)
         state[seat]["folded"] = True
+        add_action_log(state, f'{seat_name(state, seat)} フォールド')
         award_pot(state, winner, f'{seat_name(state, seat)}がフォールド。{seat_name(state, winner)}の勝ち')
         return
     if kind == "call":
@@ -345,17 +405,32 @@ def action(state, seat, kind, amount=0):
         commit_bet(state, seat, to_call)
         state["acted"][seat] = True
         state["message"] = f'{seat_name(state, seat)}が{"コール" if to_call else "チェック"}'
+        add_action_log(state, f'{seat_name(state, seat)} {"コール" if to_call else "チェック"} {to_call}')
+    if kind == "allin":
+        previous_bet = state["current_bet"]
+        previous_stack = state[seat]["stack"]
+        commit_bet(state, seat, state[seat]["stack"])
+        state["acted"][seat] = True
+        if state[seat]["bet"] > previous_bet:
+            state["acted"][other(seat)] = False
+        state["message"] = f'{seat_name(state, seat)}がオールイン'
+        add_action_log(state, f'{seat_name(state, seat)} オールイン {previous_stack}')
     if kind == "raise":
         was_open_bet = state["current_bet"] == 0
         target = max(state["current_bet"] + current_blinds(state)["big_blind"], int(amount))
+        before_stack = state[seat]["stack"]
         commit_bet(state, seat, target - state[seat]["bet"])
         state["acted"][seat] = True
         state["acted"][other(seat)] = False
         state["message"] = f'{seat_name(state, seat)}が{target}に{"ベット" if was_open_bet else "レイズ"}'
+        paid = before_stack - state[seat]["stack"]
+        add_action_log(state, f'{seat_name(state, seat)} {"ベット" if was_open_bet else "レイズ"} {state[seat]["bet"]} (+{paid})')
     if state["phase"] != "complete":
         state["actor"] = other(seat)
         if can_close(state):
             next_street(state)
+        else:
+            reset_action_timer(state)
 
 
 def cpu_action(state):
@@ -398,6 +473,7 @@ def award_pot(state, winner, text):
     state["showdown"] = True
     state["last_result"] = text
     state["message"] = text
+    add_action_log(state, text)
     state["dealer"] = other(state["dealer"])
 
 
@@ -419,6 +495,8 @@ def finish_showdown(state):
         state["p2"]["stack"] += state["pot"] - half
         state["last_result"] = f'チョップ: {p1["name"]}'
     state["message"] = state["last_result"]
+    add_action_log(state, f'ショーダウン: Player 1 {p1["name"]} / {seat_name(state, "p2")} {p2["name"]}')
+    add_action_log(state, state["last_result"])
     state["dealer"] = other(state["dealer"])
 
 
@@ -759,10 +837,23 @@ class Handler(BaseHTTPRequestHandler):
 
     def get_room(self, code):
         user, room, state = self.load_room_for_user(code)
+        changed = apply_action_timer(state)
+        if changed:
+            cpu_action(state)
+            self.persist_room(room, state)
+            if state["phase"] == "complete":
+                self.record_match(room, state)
         self.write_json({"room": self.public_room(room, state, user["id"])})
 
     def room_action(self, code, action_name):
         user, room, state = self.load_room_for_user(code)
+        if apply_action_timer(state):
+            cpu_action(state)
+            self.persist_room(room, state)
+            if state["phase"] == "complete":
+                self.record_match(room, state)
+            self.write_json({"room": self.public_room(room, state, user["id"])})
+            return
         seat = "p1" if room["player1_id"] == user["id"] else "p2"
         data = self.read_json()
         if action_name == "deal":
@@ -773,7 +864,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("まだ参加者が揃っていません")
             else:
                 raise ValueError("このハンドはすでに始まっています")
-        elif action_name in ("call", "raise", "fold"):
+        elif action_name in ("call", "raise", "allin", "fold"):
             action(state, seat, action_name, data.get("amount", 0))
             cpu_action(state)
         else:
@@ -806,10 +897,10 @@ class Handler(BaseHTTPRequestHandler):
                 winner_id = room["player2_id"]
             conn.execute(
                 """
-                insert into matches(room_code, mode, player1_id, player2_id, winner_id, winner_name, result, hand_number, created_at)
-                values(?, ?, ?, ?, ?, ?, ?, ?, ?)
+                insert into matches(room_code, mode, player1_id, player2_id, winner_id, winner_name, result, action_log, hand_number, created_at)
+                values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (room["code"], room["mode"], room["player1_id"], room["player2_id"], winner_id, winner_name, state["last_result"], state["hand"], now()),
+                (room["code"], room["mode"], room["player1_id"], room["player2_id"], winner_id, winner_name, state["last_result"], json.dumps(state.get("action_log", [])), state["hand"], now()),
             )
 
     def public_room(self, room, state, viewer_id):
@@ -827,6 +918,7 @@ class Handler(BaseHTTPRequestHandler):
         visible["code"] = room["code"]
         visible["status"] = room["status"]
         visible["blinds"] = current_blinds(state)
+        visible["action_timer"] = action_timer(state)
         return visible
 
     def history(self):
@@ -841,7 +933,15 @@ class Handler(BaseHTTPRequestHandler):
                 """,
                 (user["id"], user["id"]),
             ).fetchall()
-        self.write_json({"history": [dict(row) for row in rows]})
+        history = []
+        for row in rows:
+            item = dict(row)
+            try:
+                item["action_log"] = json.loads(item.get("action_log") or "[]")
+            except json.JSONDecodeError:
+                item["action_log"] = []
+            history.append(item)
+        self.write_json({"history": history})
 
 
 if __name__ == "__main__":

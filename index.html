@@ -60,6 +60,10 @@
               <span>ブラインド時間(分)</span>
               <input id="casualLevelMinutesInput" type="number" min="1" step="1" value="15" />
             </label>
+            <label class="toggle-setting">
+              <span>30秒制</span>
+              <input id="casualTimerInput" type="checkbox" />
+            </label>
           </section>
           <form id="joinForm" class="join-form">
             <input id="roomCodeInput" placeholder="部屋コード" maxlength="6" />
@@ -83,6 +87,10 @@
 20/40/15
 30/60/15
 50/100/15</textarea>
+              </label>
+              <label class="toggle-setting">
+                <span>30秒制</span>
+                <input id="tournamentTimerInput" type="checkbox" />
               </label>
               <button class="primary" type="submit">大会部屋を作成</button>
             </form>
@@ -139,6 +147,7 @@
             <button id="dealButton" class="primary" type="button">始める</button>
             <button id="callButton" type="button">チェック</button>
             <button id="raiseButton" type="button">ベット</button>
+            <button id="allInButton" type="button">オールイン</button>
             <button id="foldButton" type="button">フォールド</button>
             <label class="amount-control">
               <span>金額</span>
