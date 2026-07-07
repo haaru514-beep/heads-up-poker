@@ -10,31 +10,10 @@
     <main class="app">
       <section id="loginView" class="auth">
         <div class="brand">
-          <svg class="paw-logo asset-paw-logo" viewBox="0 0 160 160" role="img" aria-label="肉球ロゴ">
-            <defs>
-              <linearGradient id="pawGradient" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0" stop-color="#ffb13a" />
-                <stop offset="0.48" stop-color="#ff8e12" />
-                <stop offset="1" stop-color="#ff7800" />
-              </linearGradient>
-              <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
-                <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#f27a00" flood-opacity="0.22" />
-              </filter>
-            </defs>
-            <circle class="paw-ring outer" cx="80" cy="80" r="71" />
-            <circle class="paw-ring inner" cx="80" cy="80" r="61" />
-            <ellipse class="paw-fill toe toe-a" cx="44" cy="73" rx="16" ry="21" />
-            <ellipse class="paw-fill toe toe-b" cx="66" cy="49" rx="17" ry="23" />
-            <ellipse class="paw-fill toe toe-c" cx="94" cy="49" rx="17" ry="23" />
-            <ellipse class="paw-fill toe toe-d" cx="116" cy="73" rx="16" ry="21" />
-            <path class="paw-fill pad" d="M51 105c0-28 14-44 29-44s29 16 29 44c0 21-13 33-29 33s-29-12-29-33z" />
-          </svg>
+          <img class="paw-logo asset-paw-logo" src="/assets/paw-main.png" alt="肉球ロゴ" />
           <span>NEKOKAJI</span>
           <strong>HEADS UP<br />POKER</strong>
-          <svg class="cat-peek simple-cat" viewBox="0 0 240 100" aria-hidden="true">
-            <path class="cat-silhouette" d="M62 100c2-32 18-56 52-60L92 12c-3-4 1-9 6-6l36 26 36-26c5-3 9 2 6 6l-22 28c34 4 50 28 52 60z" />
-            <path class="cat-paws" d="M47 100c4-17 17-25 34-20v20M159 100V80c17-5 30 3 34 20" />
-          </svg>
+          <img class="cat-peek simple-cat" src="/assets/cat-peek.png" alt="" />
         </div>
         <form id="loginForm" class="login-form">
           <input id="loginIdInput" autocomplete="username" placeholder="ユーザーID" required minlength="2" />

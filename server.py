@@ -516,6 +516,8 @@ class Handler(BaseHTTPRequestHandler):
             content_type = "text/css"
         if target.suffix == ".js":
             content_type = "application/javascript"
+        if target.suffix == ".png":
+            content_type = "image/png"
         body = target.read_bytes()
         self.send_response(200)
         self.send_header("content-type", f"{content_type}; charset=utf-8")
