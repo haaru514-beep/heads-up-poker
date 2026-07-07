@@ -138,7 +138,8 @@ def make_deck():
 
 def card_label(card):
     suit = {"S": "♠", "H": "♥", "D": "♦", "C": "♣"}[card["suit"]]
-    return f'{card["rank"]}{suit}'
+    rank = "10" if card["rank"] == "T" else card["rank"]
+    return f"{rank}{suit}"
 
 
 def admin_token():

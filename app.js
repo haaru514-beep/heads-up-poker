@@ -76,14 +76,16 @@ const els = {
 
 function cardLabel(card) {
   const suits = { S: "♠", H: "♥", D: "♦", C: "♣" };
-  return `${card.rank}${suits[card.suit]}`;
+  const rank = card.rank === "T" ? "10" : card.rank;
+  return `${rank}${suits[card.suit]}`;
 }
 
 function cardHtml(card) {
   if (!card || card.hidden) return '<div class="card back"></div>';
   const label = cardLabel(card);
+  const rank = card.rank === "T" ? "10" : card.rank;
   const red = card.suit === "H" || card.suit === "D" ? " red" : "";
-  return `<div class="card${red}" aria-label="${label}"><span class="rank">${card.rank}</span><span class="suit">${label.slice(1)}</span><span class="corner">${card.rank}</span></div>`;
+  return `<div class="card${red}" aria-label="${label}"><span class="rank">${rank}</span><span class="suit">${label.replace(rank, "")}</span><span class="corner">${rank}</span></div>`;
 }
 
 function showLoggedIn(user) {
