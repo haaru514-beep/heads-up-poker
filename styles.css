@@ -222,25 +222,12 @@ input {
 .default-cat::before {
   content: "";
   position: absolute;
-  left: 12px;
-  top: 15px;
-  width: 28px;
-  height: 26px;
-  border-radius: 48% 52% 45% 55%;
-  background: #171717;
-  box-shadow: 16px 9px 0 -4px #171717;
+  inset: 4px;
+  background: url("/assets/cat-icon.png") center / contain no-repeat;
 }
 
 .default-cat::after {
-  content: "";
-  position: absolute;
-  left: 15px;
-  top: 10px;
-  width: 9px;
-  height: 13px;
-  border-radius: 3px 80% 3px 3px;
-  background: #171717;
-  box-shadow: 15px 0 0 #171717, 5px 15px 0 -3px #fff4cf, 19px 15px 0 -3px #fff4cf, 12px 22px 0 -4px #fff4cf;
+  content: none;
 }
 
 .lobby {
