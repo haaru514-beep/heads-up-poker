@@ -24,9 +24,14 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--text);
   background:
+    radial-gradient(circle at 18% 22%, rgba(255, 132, 10, 0.12) 0 5px, transparent 6px),
+    radial-gradient(circle at 20% 19%, rgba(255, 132, 10, 0.1) 0 3px, transparent 4px),
+    radial-gradient(circle at 23% 19%, rgba(255, 132, 10, 0.1) 0 3px, transparent 4px),
+    radial-gradient(circle at 25% 22%, rgba(255, 132, 10, 0.1) 0 3px, transparent 4px),
     radial-gradient(circle at 12% 12%, rgba(255, 132, 10, 0.12), transparent 18%),
     radial-gradient(circle at 86% 18%, rgba(255, 188, 94, 0.14), transparent 20%),
     linear-gradient(180deg, #fffdf9, var(--bg));
+  background-size: 420px 420px, 420px 420px, 420px 420px, 420px 420px, auto, auto, auto;
 }
 
 button,
@@ -106,10 +111,26 @@ input {
 }
 
 .paw-logo {
-  width: min(118px, 34vw);
+  width: min(136px, 38vw);
   height: auto;
   margin-bottom: 0;
   overflow: visible;
+}
+
+.paw-ring {
+  fill: #fffaf2;
+  stroke: #ff850a;
+}
+
+.paw-ring.outer {
+  stroke-width: 4;
+  filter: drop-shadow(0 10px 18px rgba(255, 132, 10, 0.2));
+}
+
+.paw-ring.inner {
+  fill: transparent;
+  stroke-width: 2;
+  opacity: 0.72;
 }
 
 .paw-fill {
@@ -121,26 +142,26 @@ input {
 
 .paw-logo .toe-a {
   transform: rotate(-18deg);
-  transform-origin: 31px 52px;
+  transform-origin: 44px 73px;
 }
 
 .paw-logo .toe-b {
   transform: rotate(-8deg);
-  transform-origin: 55px 28px;
+  transform-origin: 66px 49px;
 }
 
 .paw-logo .toe-c {
   transform: rotate(8deg);
-  transform-origin: 85px 28px;
+  transform-origin: 94px 49px;
 }
 
 .paw-logo .toe-d {
   transform: rotate(18deg);
-  transform-origin: 109px 52px;
+  transform-origin: 116px 73px;
 }
 
 .cat-peek {
-  width: min(180px, 48vw);
+  width: min(190px, 50vw);
   height: auto;
   margin-top: 12px;
   overflow: visible;
@@ -148,7 +169,7 @@ input {
 
 .cat-silhouette {
   fill: #171717;
-  filter: drop-shadow(0 8px 12px rgba(23, 23, 23, 0.14));
+  filter: drop-shadow(0 8px 12px rgba(23, 23, 23, 0.16));
 }
 
 .cat-paws {
@@ -185,6 +206,22 @@ input {
   background: linear-gradient(180deg, #ff991a, #ff7900);
   border-color: rgba(0, 0, 0, 0.18);
   font-weight: 900;
+  position: relative;
+  overflow: hidden;
+}
+
+.primary::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 22px;
+  height: 18px;
+  border-radius: 48% 48% 52% 52%;
+  background: #fff;
+  opacity: 0.88;
+  translate: 0 -32%;
+  box-shadow: -12px -9px 0 -5px #fff, -4px -15px 0 -5px #fff, 5px -15px 0 -5px #fff, 13px -9px 0 -5px #fff;
 }
 
 .topbar,
@@ -279,6 +316,7 @@ input {
   min-height: 68px;
   font-weight: 800;
   border-radius: 999px;
+  padding-right: 52px;
 }
 
 .join-form {
@@ -367,8 +405,13 @@ textarea {
   align-items: center;
   padding: 18px min(6vw, 70px);
   background:
+    radial-gradient(circle at 42% 42%, rgba(255, 132, 10, 0.07) 0 11px, transparent 12px),
+    radial-gradient(circle at 39% 39%, rgba(255, 132, 10, 0.055) 0 5px, transparent 6px),
+    radial-gradient(circle at 42% 36%, rgba(255, 132, 10, 0.055) 0 5px, transparent 6px),
+    radial-gradient(circle at 45% 39%, rgba(255, 132, 10, 0.055) 0 5px, transparent 6px),
     radial-gradient(circle at 50% 50%, rgba(23, 23, 23, 0.035) 0 52px, transparent 53px),
     radial-gradient(ellipse at center, var(--felt) 0%, var(--felt) 58%, var(--felt-dark) 100%);
+  background-size: 180px 180px, 180px 180px, 180px 180px, 180px 180px, auto, auto;
   box-shadow: inset 0 0 0 8px rgba(255, 132, 10, 0.08), var(--shadow);
 }
 
@@ -516,6 +559,11 @@ textarea {
   opacity: 0.16;
   translate: -50% 0;
   box-shadow: -22px -13px 0 -5px currentColor, -8px -22px 0 -5px currentColor, 8px -22px 0 -5px currentColor, 22px -13px 0 -5px currentColor;
+}
+
+.controls .primary::after,
+.controls button::after {
+  content: none;
 }
 
 .controls .primary::before {
