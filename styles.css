@@ -106,92 +106,100 @@ input {
 }
 
 .paw-logo {
-  position: relative;
-  width: 120px;
-  height: 104px;
+  width: min(180px, 46vw);
+  height: auto;
   margin-bottom: 4px;
+  overflow: visible;
 }
 
-.paw-pad,
-.paw-toe {
-  position: absolute;
-  display: block;
-  background: linear-gradient(180deg, #ff9b22, #ff7800);
-  box-shadow: inset 0 6px 12px rgba(255, 255, 255, 0.28), 0 8px 20px rgba(255, 132, 10, 0.22);
+.paw-fill {
+  fill: url("#pawGradient");
+  filter: url("#softShadow");
+  stroke: #ff7a00;
+  stroke-width: 2;
 }
 
-.paw-pad {
-  left: 25px;
-  bottom: 0;
-  width: 70px;
-  height: 58px;
-  border-radius: 42% 42% 50% 50%;
+.paw-stroke {
+  fill: none;
+  stroke: #ffc88f;
+  stroke-linecap: round;
+  stroke-width: 4;
 }
 
-.paw-toe {
-  width: 30px;
-  height: 38px;
-  border-radius: 50%;
+.paw-logo .toe-a {
+  transform: rotate(-18deg);
+  transform-origin: 32px 71px;
 }
 
-.toe-1 { left: 0; top: 35px; rotate: -16deg; }
-.toe-2 { left: 22px; top: 8px; rotate: -8deg; }
-.toe-3 { right: 22px; top: 8px; rotate: 8deg; }
-.toe-4 { right: 0; top: 35px; rotate: 16deg; }
+.paw-logo .toe-b {
+  transform: rotate(-8deg);
+  transform-origin: 68px 36px;
+}
+
+.paw-logo .toe-c {
+  transform: rotate(8deg);
+  transform-origin: 112px 36px;
+}
+
+.paw-logo .toe-d {
+  transform: rotate(18deg);
+  transform-origin: 148px 71px;
+}
+
+.paw-logo text {
+  fill: #fff8ed;
+  font-weight: 900;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+.paw-logo text:nth-of-type(1) {
+  font-size: 12px;
+}
+
+.paw-logo text:nth-of-type(2) {
+  font-size: 22px;
+}
+
+.paw-logo text:nth-of-type(3) {
+  font-size: 13px;
+}
 
 .cat-peek {
-  position: relative;
-  width: 132px;
-  height: 58px;
+  width: min(220px, 56vw);
+  height: auto;
   margin-top: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
-.cat-ear {
-  position: absolute;
-  top: 10px;
-  width: 42px;
-  height: 42px;
-  background: #171717;
-  border-radius: 8px 80% 8px 8px;
+.cat-body,
+.cat-ear-shape {
+  fill: #171717;
+  filter: drop-shadow(0 10px 14px rgba(23, 23, 23, 0.18));
 }
 
-.cat-ear.left {
-  left: 22px;
-  rotate: -32deg;
+.cat-tail,
+.cat-whisker,
+.cat-nose,
+.cat-paw {
+  fill: none;
+  stroke: #fff4cf;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 5;
 }
 
-.cat-ear.right {
-  right: 22px;
-  scale: -1 1;
-  rotate: 32deg;
+.cat-tail {
+  stroke: #171717;
+  stroke-width: 18;
 }
 
-.cat-face {
-  position: absolute;
-  left: 19px;
-  bottom: -48px;
-  width: 94px;
-  height: 94px;
-  border-radius: 50%;
-  background: #171717;
+.cat-eye {
+  fill: #fff4cf;
 }
 
-.cat-face i {
-  position: absolute;
-  top: 28px;
-  width: 14px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff8df;
-}
-
-.cat-face i:first-child {
-  left: 28px;
-}
-
-.cat-face i:last-child {
-  right: 28px;
+.cat-pupil {
+  fill: #171717;
 }
 
 .login-form,
@@ -278,24 +286,25 @@ input {
 .default-cat::before {
   content: "";
   position: absolute;
-  left: 10px;
-  top: 16px;
-  width: 30px;
-  height: 24px;
-  border-radius: 50%;
+  left: 12px;
+  top: 15px;
+  width: 28px;
+  height: 26px;
+  border-radius: 48% 52% 45% 55%;
   background: #171717;
+  box-shadow: 16px 9px 0 -4px #171717;
 }
 
 .default-cat::after {
   content: "";
   position: absolute;
-  left: 13px;
-  top: 9px;
-  width: 10px;
-  height: 14px;
+  left: 15px;
+  top: 10px;
+  width: 9px;
+  height: 13px;
   border-radius: 3px 80% 3px 3px;
   background: #171717;
-  box-shadow: 16px 0 0 #171717;
+  box-shadow: 15px 0 0 #171717, 5px 15px 0 -3px #fff4cf, 19px 15px 0 -3px #fff4cf, 12px 22px 0 -4px #fff4cf;
 }
 
 .lobby {
