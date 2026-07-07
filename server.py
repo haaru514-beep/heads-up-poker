@@ -109,7 +109,13 @@ def verify_password(password, stored):
 
 
 def public_user(row):
-    return {"id": row["id"], "login_id": row["login_id"], "name": row["name"], "icon_data": row["icon_data"]}
+    keys = set(row.keys())
+    return {
+        "id": row["id"],
+        "login_id": row["login_id"],
+        "name": row["name"],
+        "icon_data": row["icon_data"] if "icon_data" in keys else "",
+    }
 
 
 def user_lookup(ids):
@@ -118,7 +124,7 @@ def user_lookup(ids):
         return {}
     placeholders = ",".join("?" for _ in clean_ids)
     with db() as conn:
-        rows = conn.execute(f"select id, login_id, name from users where id in ({placeholders})", clean_ids).fetchall()
+        rows = conn.execute(f"select id, login_id, name, icon_data from users where id in ({placeholders})", clean_ids).fetchall()
     return {row["id"]: public_user(row) for row in rows}
 
 
