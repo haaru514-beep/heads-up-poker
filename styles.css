@@ -102,13 +102,13 @@ input {
   font-size: clamp(30px, 5vw, 56px);
   line-height: 1.05;
   letter-spacing: 0;
-  text-shadow: 0 4px 0 rgba(255, 132, 10, 0.16);
+  text-shadow: none;
 }
 
 .paw-logo {
-  width: min(180px, 46vw);
+  width: min(118px, 34vw);
   height: auto;
-  margin-bottom: 4px;
+  margin-bottom: 0;
   overflow: visible;
 }
 
@@ -116,90 +116,47 @@ input {
   fill: url("#pawGradient");
   filter: url("#softShadow");
   stroke: #ff7a00;
-  stroke-width: 2;
-}
-
-.paw-stroke {
-  fill: none;
-  stroke: #ffc88f;
-  stroke-linecap: round;
-  stroke-width: 4;
+  stroke-width: 1.7;
 }
 
 .paw-logo .toe-a {
   transform: rotate(-18deg);
-  transform-origin: 32px 71px;
+  transform-origin: 31px 52px;
 }
 
 .paw-logo .toe-b {
   transform: rotate(-8deg);
-  transform-origin: 68px 36px;
+  transform-origin: 55px 28px;
 }
 
 .paw-logo .toe-c {
   transform: rotate(8deg);
-  transform-origin: 112px 36px;
+  transform-origin: 85px 28px;
 }
 
 .paw-logo .toe-d {
   transform: rotate(18deg);
-  transform-origin: 148px 71px;
-}
-
-.paw-logo text {
-  fill: #fff8ed;
-  font-weight: 900;
-  letter-spacing: 0;
-  pointer-events: none;
-}
-
-.paw-logo text:nth-of-type(1) {
-  font-size: 12px;
-}
-
-.paw-logo text:nth-of-type(2) {
-  font-size: 22px;
-}
-
-.paw-logo text:nth-of-type(3) {
-  font-size: 13px;
+  transform-origin: 109px 52px;
 }
 
 .cat-peek {
-  width: min(220px, 56vw);
+  width: min(180px, 48vw);
   height: auto;
-  margin-top: 8px;
+  margin-top: 12px;
   overflow: visible;
 }
 
-.cat-body,
-.cat-ear-shape {
+.cat-silhouette {
   fill: #171717;
-  filter: drop-shadow(0 10px 14px rgba(23, 23, 23, 0.18));
+  filter: drop-shadow(0 8px 12px rgba(23, 23, 23, 0.14));
 }
 
-.cat-tail,
-.cat-whisker,
-.cat-nose,
-.cat-paw {
+.cat-paws {
   fill: none;
   stroke: #fff4cf;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 5;
-}
-
-.cat-tail {
-  stroke: #171717;
-  stroke-width: 18;
-}
-
-.cat-eye {
-  fill: #fff4cf;
-}
-
-.cat-pupil {
-  fill: #171717;
 }
 
 .login-form,
@@ -321,7 +278,7 @@ input {
 .action-grid button {
   min-height: 68px;
   font-weight: 800;
-  border-radius: 22px;
+  border-radius: 999px;
 }
 
 .join-form {
@@ -403,8 +360,8 @@ textarea {
 
 .table {
   min-height: 540px;
-  border: 5px solid var(--rail);
-  border-radius: 38% / 11%;
+  border: 8px solid var(--rail);
+  border-radius: 48% / 16%;
   display: grid;
   grid-template-rows: 1fr auto 1fr;
   align-items: center;
@@ -541,8 +498,8 @@ textarea {
 }
 
 .controls button {
-  min-height: 66px;
-  border-radius: 24px 24px 30px 30px;
+  min-height: 58px;
+  border-radius: 10px;
   position: relative;
   overflow: hidden;
 }
