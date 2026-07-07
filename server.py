@@ -40,6 +40,7 @@ def init_db():
               id integer primary key autoincrement,
               login_id text not null unique default '',
               name text not null unique,
+              icon_data text not null default '',
               password_hash text not null,
               created_at integer not null
             );
@@ -79,6 +80,7 @@ def init_db():
             """
         )
         ensure_column(conn, "users", "login_id", "text not null default ''")
+        ensure_column(conn, "users", "icon_data", "text not null default ''")
         rows = conn.execute("select id, name from users where login_id = ''").fetchall()
         for row in rows:
             conn.execute("update users set login_id = ? where id = ?", (f"user{row['id']}", row["id"]))
@@ -107,7 +109,7 @@ def verify_password(password, stored):
 
 
 def public_user(row):
-    return {"id": row["id"], "login_id": row["login_id"], "name": row["name"]}
+    return {"id": row["id"], "login_id": row["login_id"], "name": row["name"], "icon_data": row["icon_data"]}
 
 
 def user_lookup(ids):
@@ -553,6 +555,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.admin_login()
             elif method == "POST" and path == "/api/admin/logout":
                 self.admin_logout()
+            elif method == "POST" and path == "/api/profile/icon":
+                self.profile_icon()
             elif method == "GET" and path == "/api/admin/rooms":
                 self.admin_rooms()
             elif method == "POST" and path == "/api/admin/rooms":
@@ -626,6 +630,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def admin_logout(self):
         self.write_json({"ok": True}, extra_headers={"set-cookie": f"{ADMIN_COOKIE}=; Path=/; Max-Age=0"})
+
+    def profile_icon(self):
+        user = self.require_user()
+        icon_data = (self.read_json().get("icon_data") or "").strip()
+        if icon_data and (not icon_data.startswith("data:image/") or len(icon_data) > 240000):
+            raise ValueError("画像が大きすぎるか、形式が違います")
+        with db() as conn:
+            conn.execute("update users set icon_data = ? where id = ?", (icon_data, user["id"]))
+            updated = conn.execute("select * from users where id = ?", (user["id"],)).fetchone()
+        self.write_json({"user": public_user(updated)})
 
     def logout(self):
         user = self.current_user()

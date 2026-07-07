@@ -10,8 +10,23 @@
     <main class="app">
       <section id="loginView" class="auth">
         <div class="brand">
-          <span>Heads-Up Poker</span>
-          <strong>ログインして対戦を始める</strong>
+          <div class="paw-logo">
+            <span class="paw-pad"></span>
+            <span class="paw-toe toe-1"></span>
+            <span class="paw-toe toe-2"></span>
+            <span class="paw-toe toe-3"></span>
+            <span class="paw-toe toe-4"></span>
+          </div>
+          <span>NEKOKAJI</span>
+          <strong>HEADS UP<br />POKER</strong>
+          <div class="cat-peek" aria-hidden="true">
+            <span class="cat-ear left"></span>
+            <span class="cat-ear right"></span>
+            <span class="cat-face">
+              <i></i>
+              <i></i>
+            </span>
+          </div>
         </div>
         <form id="loginForm" class="login-form">
           <input id="loginIdInput" autocomplete="username" placeholder="ユーザーID" required minlength="2" />
@@ -27,6 +42,11 @@
             <span class="eyebrow">Logged in</span>
             <strong id="userName">-</strong>
           </div>
+          <label class="icon-upload">
+            <input id="profileIconInput" type="file" accept="image/*" />
+            <span id="profileIconPreview" class="player-icon default-cat"></span>
+            <strong>アイコン変更</strong>
+          </label>
           <button id="logoutButton" type="button">ログアウト</button>
         </header>
 
@@ -100,6 +120,7 @@
           <section class="table">
             <div class="seat top-seat">
               <div class="seat-meta">
+                <span id="p2Icon" class="player-icon default-cat"></span>
                 <span id="p2Name">Player 2</span>
                 <small id="p2UserId"></small>
                 <strong id="p2Stack">1000</strong>
@@ -119,6 +140,7 @@
               <div id="p1Bet" class="chip">ベット 0</div>
               <div id="p1Cards" class="cards"></div>
               <div class="seat-meta">
+                <span id="p1Icon" class="player-icon default-cat"></span>
                 <span id="p1Name">Player 1</span>
                 <small id="p1UserId"></small>
                 <strong id="p1Stack">1000</strong>

@@ -23,6 +23,8 @@ const els = {
   nameInput: $("#nameInput"),
   passwordInput: $("#passwordInput"),
   userName: $("#userName"),
+  profileIconInput: $("#profileIconInput"),
+  profileIconPreview: $("#profileIconPreview"),
   logoutButton: $("#logoutButton"),
   lobbyView: $("#lobbyView"),
   roomView: $("#roomView"),
@@ -40,6 +42,8 @@ const els = {
   roomCode: $("#roomCode"),
   p1Name: $("#p1Name"),
   p2Name: $("#p2Name"),
+  p1Icon: $("#p1Icon"),
+  p2Icon: $("#p2Icon"),
   p1UserId: $("#p1UserId"),
   p2UserId: $("#p2UserId"),
   p1Stack: $("#p1Stack"),
@@ -82,9 +86,40 @@ function cardHtml(card) {
 function showLoggedIn(user) {
   currentUser = user;
   els.userName.textContent = `${user.name} / ${user.login_id}`;
+  setIcon(els.profileIconPreview, user.icon_data);
   els.loginView.classList.add("hidden");
   els.mainView.classList.remove("hidden");
   showLobby();
+}
+
+function setIcon(element, iconData) {
+  element.classList.toggle("default-cat", !iconData);
+  element.style.backgroundImage = iconData ? `url("${iconData}")` : "";
+}
+
+function fileToIconData(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("画像を読み込めませんでした"));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("画像形式を確認してください"));
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        const size = 192;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        const scale = Math.max(size / image.width, size / image.height);
+        const width = image.width * scale;
+        const height = image.height * scale;
+        ctx.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function casualSettings(mode) {
@@ -142,6 +177,8 @@ function renderRoom(room) {
   els.p2Bet.textContent = `ベット ${room.p2.bet}`;
   els.p1Name.textContent = room.p1.user ? room.p1.user.name : "Player 1";
   els.p2Name.textContent = room.mode === "cpu" ? "CPU" : (room.p2.user ? room.p2.user.name : "Player 2");
+  setIcon(els.p1Icon, room.p1.user ? room.p1.user.icon_data : "");
+  setIcon(els.p2Icon, room.p2.user ? room.p2.user.icon_data : "");
   els.p1UserId.textContent = room.p1.user ? room.p1.user.login_id : "";
   els.p2UserId.textContent = room.p2.user ? room.p2.user.login_id : "";
   els.p1Cards.innerHTML = room.p1.cards.map(cardHtml).join("");
@@ -200,6 +237,23 @@ els.loginForm.addEventListener("submit", async (event) => {
 els.logoutButton.addEventListener("click", async () => {
   await api("/api/logout", { method: "POST" });
   location.reload();
+});
+
+els.profileIconInput.addEventListener("change", async () => {
+  const file = els.profileIconInput.files && els.profileIconInput.files[0];
+  if (!file) return;
+  try {
+    const iconData = await fileToIconData(file);
+    const data = await api("/api/profile/icon", { method: "POST", body: { icon_data: iconData } });
+    currentUser = data.user;
+    els.userName.textContent = `${data.user.name} / ${data.user.login_id}`;
+    setIcon(els.profileIconPreview, data.user.icon_data);
+    if (currentRoom) pollRoom();
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    els.profileIconInput.value = "";
+  }
 });
 
 els.createPvpButton.addEventListener("click", async () => {
