@@ -166,7 +166,7 @@ function showRoom(code) {
 async function loadHistory() {
   const data = await api("/api/history");
   els.historyList.innerHTML = data.history.length
-    ? data.history.map(historyItemHtml).join("")
+    ? historyByDateHtml(data.history)
     : "<li>まだ履歴がありません</li>";
 }
 
@@ -195,12 +195,37 @@ function historyItemHtml(row) {
       <details>
         <summary>
           <strong>${escapeHtml(row.result)}</strong>
-          <span>${escapeHtml(row.mode).toUpperCase()} / 部屋 ${escapeHtml(row.room_code)} / Hand ${escapeHtml(row.hand_number)}</span>
+          <span>${historyTimeLabel(row.created_at)} / ${escapeHtml(row.mode).toUpperCase()} / 部屋 ${escapeHtml(row.room_code)} / Hand ${escapeHtml(row.hand_number)}</span>
         </summary>
         <ol class="history-actions">${detail}</ol>
       </details>
     </li>
   `;
+}
+
+function historyDateLabel(timestamp) {
+  const date = new Date(Number(timestamp) * 1000);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}/${month}/${day}`;
+}
+
+function historyTimeLabel(timestamp) {
+  const date = new Date(Number(timestamp) * 1000);
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function historyByDateHtml(history) {
+  let currentDate = "";
+  return history.map((row) => {
+    const dateLabel = historyDateLabel(row.created_at);
+    const header = dateLabel === currentDate ? "" : `<li class="history-date">${escapeHtml(dateLabel)}</li>`;
+    currentDate = dateLabel;
+    return `${header}${historyItemHtml(row)}`;
+  }).join("");
 }
 
 async function pollRoom() {
