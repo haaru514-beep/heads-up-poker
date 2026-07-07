@@ -164,7 +164,7 @@ input {
 }
 
 .settings-panel {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
 }
 
 .settings-panel .section-title,
@@ -365,10 +365,25 @@ textarea {
 
 .controls label {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 10px;
   color: var(--muted);
+}
+
+.amount-control {
+  min-width: min(360px, 100%);
+}
+
+.amount-control strong {
+  min-width: 64px;
+  color: var(--text);
+  text-align: right;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--gold);
 }
 
 @media (max-width: 760px) {

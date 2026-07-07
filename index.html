@@ -27,7 +27,7 @@
             <span class="eyebrow">Logged in</span>
             <strong id="userName">-</strong>
           </div>
-          <button id="logoutButton" type="button">Logout</button>
+          <button id="logoutButton" type="button">ログアウト</button>
         </header>
 
         <section id="lobbyView" class="lobby">
@@ -49,6 +49,10 @@
               <span>BB</span>
               <input id="casualBigBlindInput" type="number" min="2" step="10" value="20" />
             </label>
+            <label>
+              <span>ブラインド時間(分)</span>
+              <input id="casualLevelMinutesInput" type="number" min="1" step="1" value="15" />
+            </label>
           </section>
           <form id="joinForm" class="join-form">
             <input id="roomCodeInput" placeholder="部屋コード" maxlength="6" />
@@ -68,10 +72,10 @@
               </label>
               <label>
                 <span>ストラクチャー</span>
-                <textarea id="structureInput" rows="4">10/20
-20/40
-30/60
-50/100</textarea>
+                <textarea id="structureInput" rows="4">10/20/15
+20/40/15
+30/60/15
+50/100/15</textarea>
               </label>
               <button class="primary" type="submit">大会部屋を作成</button>
             </form>
@@ -85,12 +89,12 @@
 
         <section id="roomView" class="room hidden">
           <nav class="roombar">
-            <button id="backButton" type="button">Lobby</button>
+            <button id="backButton" type="button">部屋を出る</button>
             <div>
-              <span class="eyebrow">Room</span>
+              <span class="eyebrow">部屋</span>
               <strong id="roomCode">------</strong>
             </div>
-            <button id="copyButton" type="button">Copy</button>
+            <button id="copyButton" type="button">コードコピー</button>
           </nav>
 
           <section class="table">
@@ -101,18 +105,18 @@
                 <strong id="p2Stack">1000</strong>
               </div>
               <div id="p2Cards" class="cards"></div>
-              <div id="p2Bet" class="chip">Bet 0</div>
+              <div id="p2Bet" class="chip">ベット 0</div>
             </div>
 
             <div class="board">
               <div id="communityCards" class="cards community"></div>
-              <p id="messageText">Dealで開始</p>
+              <p id="messageText">始めるを押してください</p>
               <span id="blindText"></span>
-              <strong id="potText">Pot 0</strong>
+              <strong id="potText">ポット 0</strong>
             </div>
 
             <div class="seat bottom-seat">
-              <div id="p1Bet" class="chip">Bet 0</div>
+              <div id="p1Bet" class="chip">ベット 0</div>
               <div id="p1Cards" class="cards"></div>
               <div class="seat-meta">
                 <span id="p1Name">Player 1</span>
@@ -123,13 +127,14 @@
           </section>
 
           <section class="controls">
-            <button id="dealButton" class="primary" type="button">Deal</button>
-            <button id="callButton" type="button">Check</button>
-            <button id="raiseButton" type="button">Bet</button>
-            <button id="foldButton" type="button">Fold</button>
-            <label>
-              <span>Size</span>
-              <input id="raiseInput" type="number" min="20" step="20" value="40" />
+            <button id="dealButton" class="primary" type="button">始める</button>
+            <button id="callButton" type="button">チェック</button>
+            <button id="raiseButton" type="button">ベット</button>
+            <button id="foldButton" type="button">フォールド</button>
+            <label class="amount-control">
+              <span>金額</span>
+              <input id="raiseInput" type="range" min="20" max="1000" step="10" value="40" />
+              <strong id="raiseValue">40</strong>
             </label>
           </section>
         </section>

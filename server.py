@@ -143,7 +143,7 @@ def int_setting(value, default, minimum, maximum):
     return max(minimum, min(maximum, parsed))
 
 
-def normalize_structure(raw, small_blind=SMALL_BLIND, big_blind=BIG_BLIND):
+def normalize_structure(raw, small_blind=SMALL_BLIND, big_blind=BIG_BLIND, level_minutes=15):
     if isinstance(raw, str):
         rows = [row.strip() for row in raw.replace(",", "\n").splitlines() if row.strip()]
         parsed = []
@@ -153,8 +153,9 @@ def normalize_structure(raw, small_blind=SMALL_BLIND, big_blind=BIG_BLIND):
                 parsed.append({
                     "small_blind": int_setting(parts[0], small_blind, 1, 100000),
                     "big_blind": int_setting(parts[1], big_blind, 2, 200000),
+                    "minutes": int_setting(parts[2] if len(parts) >= 3 else level_minutes, level_minutes, 1, 240),
                 })
-        return parsed or [{"small_blind": small_blind, "big_blind": big_blind}]
+        return parsed or [{"small_blind": small_blind, "big_blind": big_blind, "minutes": level_minutes}]
     if isinstance(raw, list):
         parsed = []
         for row in raw[:20]:
@@ -162,9 +163,10 @@ def normalize_structure(raw, small_blind=SMALL_BLIND, big_blind=BIG_BLIND):
                 parsed.append({
                     "small_blind": int_setting(row.get("small_blind"), small_blind, 1, 100000),
                     "big_blind": int_setting(row.get("big_blind"), big_blind, 2, 200000),
+                    "minutes": int_setting(row.get("minutes"), level_minutes, 1, 240),
                 })
-        return parsed or [{"small_blind": small_blind, "big_blind": big_blind}]
-    return [{"small_blind": small_blind, "big_blind": big_blind}]
+        return parsed or [{"small_blind": small_blind, "big_blind": big_blind, "minutes": level_minutes}]
+    return [{"small_blind": small_blind, "big_blind": big_blind, "minutes": level_minutes}]
 
 
 def room_settings(data=None):
@@ -172,11 +174,13 @@ def room_settings(data=None):
     initial_stack = int_setting(data.get("initial_stack"), STARTING_STACK, 100, 1000000)
     small_blind = int_setting(data.get("small_blind"), SMALL_BLIND, 1, 100000)
     big_blind = int_setting(data.get("big_blind"), BIG_BLIND, small_blind * 2, 200000)
-    structure = normalize_structure(data.get("structure"), small_blind, big_blind)
+    level_minutes = int_setting(data.get("level_minutes"), 15, 1, 240)
+    structure = normalize_structure(data.get("structure"), small_blind, big_blind, level_minutes)
     return {
         "initial_stack": initial_stack,
         "small_blind": small_blind,
         "big_blind": big_blind,
+        "level_minutes": level_minutes,
         "structure": structure,
         "room_type": data.get("room_type", "casual"),
         "title": (data.get("title") or "").strip()[:40],
@@ -185,12 +189,25 @@ def room_settings(data=None):
 
 def current_blinds(state):
     structure = state.get("settings", {}).get("structure") or []
-    level = min(max(state.get("hand", 0), 0), max(len(structure) - 1, 0))
+    elapsed_seconds = max(0, now() - int(state.get("level_started_at") or now()))
+    remaining = 0
+    level = 0
+    elapsed_cursor = elapsed_seconds
+    for index, row in enumerate(structure):
+        duration = int_setting(row.get("minutes"), state.get("settings", {}).get("level_minutes", 15), 1, 240) * 60
+        if elapsed_cursor < duration:
+            level = index
+            remaining = duration - elapsed_cursor
+            break
+        elapsed_cursor -= duration
+        level = index
     row = structure[level] if structure else {}
     return {
         "small_blind": int_setting(row.get("small_blind"), state.get("settings", {}).get("small_blind", SMALL_BLIND), 1, 100000),
         "big_blind": int_setting(row.get("big_blind"), state.get("settings", {}).get("big_blind", BIG_BLIND), 2, 200000),
         "level": level + 1,
+        "minutes": int_setting(row.get("minutes"), state.get("settings", {}).get("level_minutes", 15), 1, 240),
+        "remaining_seconds": remaining,
     }
 
 
@@ -212,7 +229,8 @@ def fresh_state(mode, player1_id, player2_id=None, settings=None):
         "acted": {"p1": False, "p2": False},
         "showdown": False,
         "settings": settings,
-        "message": "参加者を待っています" if waiting else "Dealで開始",
+        "level_started_at": None,
+        "message": "参加者を待っています" if waiting else "始めるを押してください",
         "last_result": "",
     }
 
@@ -246,6 +264,8 @@ def other(seat):
 def start_hand(state):
     if state["phase"] == "waiting":
         raise ValueError("まだ対戦相手が参加していません")
+    if not state.get("level_started_at"):
+        state["level_started_at"] = now()
     blinds = current_blinds(state)
     initial_stack = state.get("settings", {}).get("initial_stack", STARTING_STACK)
     if state["p1"]["stack"] <= 0 or state["p2"]["stack"] <= 0:
@@ -694,7 +714,7 @@ class Handler(BaseHTTPRequestHandler):
             elif not state["p2"].get("user_id"):
                 state["p2"]["user_id"] = user["id"]
                 state["phase"] = "idle"
-                state["message"] = "Dealで開始"
+                state["message"] = "始めるを押してください"
             else:
                 raise ValueError("この部屋は満席です")
             conn.execute(
