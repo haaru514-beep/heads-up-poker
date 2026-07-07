@@ -206,7 +206,7 @@ function renderRoom(room) {
   }
   els.raiseValue.textContent = els.raiseInput.value;
   els.dealButton.disabled = !["idle", "complete"].includes(room.phase);
-  els.dealButton.textContent = room.phase === "complete" ? "次のハンド" : "始める";
+  els.dealButton.textContent = room.phase === "waiting" ? "参加待ち" : (room.phase === "complete" ? "次のハンド" : "始める");
   els.callButton.disabled = !room.can_act;
   els.raiseButton.disabled = !room.can_act;
   els.foldButton.disabled = !room.can_act || !toCall;
@@ -217,8 +217,13 @@ function renderRoom(room) {
 }
 
 async function roomAction(name, body = {}) {
-  const data = await api(`/api/rooms/${currentRoom}/${name}`, { method: "POST", body });
-  renderRoom(data.room);
+  try {
+    const data = await api(`/api/rooms/${currentRoom}/${name}`, { method: "POST", body });
+    renderRoom(data.room);
+  } catch (error) {
+    alert(error.message);
+    pollRoom();
+  }
 }
 
 els.loginForm.addEventListener("submit", async (event) => {

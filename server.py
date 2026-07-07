@@ -763,6 +763,10 @@ class Handler(BaseHTTPRequestHandler):
             if state["phase"] in ("idle", "complete"):
                 start_hand(state)
                 cpu_action(state)
+            elif state["phase"] == "waiting":
+                raise ValueError("まだ参加者が揃っていません")
+            else:
+                raise ValueError("このハンドはすでに始まっています")
         elif action_name in ("call", "raise", "fold"):
             action(state, seat, action_name, data.get("amount", 0))
             cpu_action(state)

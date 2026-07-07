@@ -520,7 +520,47 @@ input[type="range"] {
 
 @media (max-width: 760px) {
   .app {
-    padding: 10px;
+    padding: 8px;
+  }
+
+  .topbar {
+    min-height: 52px;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .topbar > div {
+    min-width: 0;
+  }
+
+  .topbar strong {
+    display: block;
+    max-width: 38vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+
+  .icon-upload {
+    min-height: 42px;
+    grid-template-columns: 30px;
+    padding: 4px 8px;
+  }
+
+  .icon-upload strong {
+    display: none;
+  }
+
+  .icon-upload .player-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  #logoutButton {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 
   .action-grid,
@@ -539,17 +579,183 @@ input[type="range"] {
     grid-column: 1 / -1;
   }
 
+  .room {
+    min-height: calc(100dvh - 16px);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .room:not(.hidden) {
+    overflow: hidden;
+  }
+
+  .roombar {
+    min-height: 44px;
+    margin-bottom: 0;
+    padding: 5px 8px;
+    border-radius: 12px;
+  }
+
+  .roombar button {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .roombar strong {
+    font-size: 15px;
+  }
+
   .table {
-    min-height: 520px;
-    border-width: 10px;
-    border-radius: 34px;
-    padding: 12px 8px;
+    min-height: 0;
+    height: min(58dvh, 490px);
+    border-width: 5px;
+    border-radius: 24px;
+    padding: 6px 6px;
+    grid-template-rows: 0.9fr 1.05fr 0.9fr;
+    background:
+      url("/assets/paw-small.png") 17% 33% / 30px auto no-repeat,
+      url("/assets/paw-small.png") 83% 33% / 30px auto no-repeat,
+      url("/assets/paw-small.png") 50% 50% / 42px auto no-repeat,
+      radial-gradient(circle at 50% 50%, rgba(23, 23, 23, 0.025) 0 38px, transparent 39px),
+      radial-gradient(ellipse at center, var(--felt) 0%, var(--felt) 58%, var(--felt-dark) 100%);
+    box-shadow: inset 0 0 0 4px rgba(255, 132, 10, 0.07), var(--shadow);
+  }
+
+  .seat,
+  .board {
+    gap: 4px;
+  }
+
+  .seat-meta {
+    width: min(220px, 94%);
+    min-height: 38px;
+    padding: 4px 8px;
+    column-gap: 7px;
+    font-size: 12px;
+  }
+
+  .seat-meta small {
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .player-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .cards {
+    min-height: 62px;
+    gap: 5px;
   }
 
   .community {
-    max-width: 330px;
+    max-width: 270px;
     flex-wrap: wrap;
     align-content: center;
-    min-height: 196px;
+    min-height: 118px;
+  }
+
+  .card {
+    width: clamp(38px, 11vw, 48px);
+    border-radius: 6px;
+    padding: 5px;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.18);
+  }
+
+  .card.back {
+    border-width: 3px;
+    background-size: 10px 10px, 10px 10px, auto;
+  }
+
+  .rank {
+    font-size: 15px;
+  }
+
+  .suit {
+    font-size: 24px;
+  }
+
+  .corner {
+    font-size: 12px;
+  }
+
+  .chip {
+    min-width: 66px;
+    height: 24px;
+    font-size: 10px;
+    box-shadow: 0 3px 0 #c43f3f, 0 6px 12px rgba(0, 0, 0, 0.16);
+  }
+
+  #messageText {
+    min-height: 30px;
+    max-width: 280px;
+    padding: 5px 8px;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  #blindText {
+    min-height: 18px;
+    font-size: 11px;
+  }
+
+  #potText {
+    font-size: 15px;
+  }
+
+  .controls {
+    min-height: 0;
+    padding: 7px;
+    gap: 6px;
+    border-radius: 12px;
+  }
+
+  .controls button {
+    min-height: 42px;
+    padding: 0 8px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+
+  .controls button::before {
+    width: 18px;
+    height: 16px;
+    bottom: 4px;
+    opacity: 0.16;
+  }
+
+  .amount-control {
+    min-height: 36px;
+    grid-template-columns: 36px 1fr 54px;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .amount-control strong {
+    min-width: 48px;
+  }
+
+  input[type="range"] {
+    min-height: 34px;
+  }
+}
+
+@media (max-width: 380px), (max-height: 720px) {
+  .table {
+    height: min(55dvh, 440px);
+  }
+
+  .card {
+    width: clamp(34px, 10vw, 43px);
+  }
+
+  .community {
+    min-height: 104px;
+  }
+
+  .controls button {
+    min-height: 38px;
   }
 }
