@@ -310,9 +310,44 @@ textarea {
 }
 
 .admin-room-list {
+  display: grid;
+  gap: 8px;
   margin: 0;
-  padding-left: 22px;
+  padding-left: 0;
   color: var(--muted);
+}
+
+.admin-room-result {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  list-style: none;
+}
+
+.admin-room-result div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-room-result button {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.admin-room-result b {
+  color: var(--text);
+}
+
+.admin-room-result small {
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .admin-created-room {

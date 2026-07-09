@@ -448,9 +448,28 @@ async function loadAdminRooms() {
   const data = await api("/api/admin/rooms");
   els.adminRoomList.innerHTML = data.rooms.map((room) => {
     const title = room.settings.title || room.code;
-    return `<li>${title} / ${room.code} / ${room.phase} / ${room.settings.initial_stack}</li>`;
+    const winner = room.winner ? `勝者: ${escapeHtml(room.winner)}` : "勝者: 未確定";
+    const result = room.result ? escapeHtml(room.result) : escapeHtml(room.message || "対戦待ち");
+    return `
+      <li class="admin-room-result">
+        <div>
+          <strong>${escapeHtml(title)}</strong>
+          <button type="button" data-room-code="${escapeHtml(room.code)}">コード ${escapeHtml(room.code)}</button>
+        </div>
+        <span>${escapeHtml(room.phase)} / 初期点 ${escapeHtml(room.settings.initial_stack)}</span>
+        <b>${winner}</b>
+        <small>${result}</small>
+      </li>
+    `;
   }).join("");
 }
+
+els.adminRoomList.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-room-code]");
+  if (!button) return;
+  await navigator.clipboard.writeText(button.dataset.roomCode);
+  els.adminCreatedRoom.textContent = `部屋コードをコピーしました: ${button.dataset.roomCode}`;
+});
 
 els.adminRoomForm.addEventListener("submit", async (event) => {
   event.preventDefault();

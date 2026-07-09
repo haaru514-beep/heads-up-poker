@@ -922,9 +922,23 @@ class Handler(BaseHTTPRequestHandler):
             rows = conn.execute(
                 "select code, mode, status, state_json, created_at, updated_at from rooms order by updated_at desc limit 50"
             ).fetchall()
+            latest_matches = conn.execute(
+                """
+                select m.*
+                from matches m
+                join (
+                  select room_code, max(created_at) as latest_at
+                  from matches
+                  group by room_code
+                ) latest
+                on latest.room_code = m.room_code and latest.latest_at = m.created_at
+                """
+            ).fetchall()
+        latest_by_room = {row["room_code"]: dict(row) for row in latest_matches}
         rooms = []
         for row in rows:
             state = json.loads(row["state_json"])
+            latest = latest_by_room.get(row["code"])
             rooms.append({
                 "code": row["code"],
                 "mode": row["mode"],
@@ -932,6 +946,13 @@ class Handler(BaseHTTPRequestHandler):
                 "phase": state.get("phase"),
                 "settings": state.get("settings", {}),
                 "message": state.get("message", ""),
+                "players": {
+                    "p1": state.get("p1", {}).get("user_id"),
+                    "p2": state.get("p2", {}).get("user_id"),
+                },
+                "winner": latest["winner_name"] if latest else "",
+                "result": latest["result"] if latest else "",
+                "hand_number": latest["hand_number"] if latest else state.get("hand", 0),
             })
         self.write_json({"rooms": rooms})
 
