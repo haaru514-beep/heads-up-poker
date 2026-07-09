@@ -912,7 +912,7 @@ class Handler(BaseHTTPRequestHandler):
                 insert into rooms(code, mode, status, owner_id, player1_id, player2_id, state_json, created_at, updated_at)
                 values(?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (code, "pvp", "tournament", 0, None, None, json.dumps(state), now(), now()),
+                (code, "pvp", "tournament", 0, 0, None, json.dumps(state), now(), now()),
             )
         self.write_json({"code": code})
 
