@@ -75,6 +75,7 @@ def init_db():
               winner_name text not null,
               result text not null,
               action_log text not null default '[]',
+              hand_detail text not null default '{}',
               hand_number integer not null,
               created_at integer not null
             );
@@ -83,6 +84,7 @@ def init_db():
         ensure_column(conn, "users", "login_id", "text not null default ''")
         ensure_column(conn, "users", "icon_data", "text not null default ''")
         ensure_column(conn, "matches", "action_log", "text not null default '[]'")
+        ensure_column(conn, "matches", "hand_detail", "text not null default '{}'")
         rows = conn.execute("select id, name from users where login_id = ''").fetchall()
         for row in rows:
             conn.execute("update users set login_id = ? where id = ?", (f"user{row['id']}", row["id"]))
@@ -140,6 +142,10 @@ def card_label(card):
     suit = {"S": "♠", "H": "♥", "D": "♦", "C": "♣"}[card["suit"]]
     rank = "10" if card["rank"] == "T" else card["rank"]
     return f"{rank}{suit}"
+
+
+def cards_label(cards):
+    return " ".join(card_label(card) for card in cards)
 
 
 def admin_token():
@@ -492,20 +498,25 @@ def cpu_action(state):
             wait_showdown(state, True)
             return
         strength = estimate_strength(state["p2"]["cards"], state["community"])
+        if state["phase"] == "preflop":
+            strength = max(strength, preflop_gto_score(state["p2"]["cards"]))
         pot_odds = to_call / max(1, state["pot"] + to_call)
         roll = secrets.randbelow(100) / 100
-        pressure = min(0.25, to_call / max(1, state["p2"]["stack"] + to_call) * 0.4)
-        call_line = 0.24 + pot_odds * 0.9 + pressure - roll * 0.08
+        mdf = state["pot"] / max(1, state["pot"] + to_call)
+        pressure = min(0.22, to_call / max(1, state["p2"]["stack"] + to_call) * 0.35)
+        call_line = 0.22 + pot_odds * 0.7 + pressure - (1 - mdf) * 0.12 - roll * 0.07
         if to_call and strength < call_line:
             action(state, "p2", "fold")
         elif to_call:
-            if strength > 0.78 and state["p2"]["stack"] > to_call + current_blinds(state)["big_blind"] and roll > 0.5:
+            if strength > 0.8 and state["p2"]["stack"] > to_call + current_blinds(state)["big_blind"] and roll > 0.42:
                 action(state, "p2", "allin" if strength > 0.92 and roll > 0.72 else "raise", cpu_bet_size(state, strength))
+            elif strength > 0.68 and roll > 0.72:
+                action(state, "p2", "raise", cpu_bet_size(state, strength))
             else:
                 action(state, "p2", "call")
-        elif strength > 0.62 and roll > 0.28:
+        elif strength > 0.62 and roll > 0.22:
             action(state, "p2", "raise", cpu_bet_size(state, strength))
-        elif strength > 0.48 and roll > 0.72:
+        elif strength > 0.46 and roll > 0.78:
             big_blind = current_blinds(state)["big_blind"]
             action(state, "p2", "raise", max(big_blind, state["p2"]["bet"] + big_blind))
         else:
@@ -523,6 +534,35 @@ def cpu_bet_size(state, strength):
         percent = 0.45
     target = state["p2"]["bet"] + max(big_blind, int(round(pot * percent / big_blind)) * big_blind)
     return min(state["p2"]["stack"] + state["p2"]["bet"], max(state["current_bet"] + big_blind, target))
+
+
+def preflop_gto_score(cards):
+    a, b = cards
+    high = max(a["value"], b["value"])
+    low = min(a["value"], b["value"])
+    pair = high == low
+    suited = a["suit"] == b["suit"]
+    gap = high - low
+    score = 0.18 + high / 24 + low / 42
+    if pair:
+        score = 0.52 + high / 30
+    if suited:
+        score += 0.075
+    if gap == 1:
+        score += 0.065
+    elif gap == 2:
+        score += 0.04
+    elif gap == 3:
+        score += 0.015
+    elif gap >= 5:
+        score -= 0.09
+    if high == 14:
+        score += 0.08
+    if high >= 13 and low >= 10:
+        score += 0.1
+    if high <= 10 and low <= 6 and not suited:
+        score -= 0.12
+    return max(0.05, min(0.98, score))
 
 
 def estimate_strength(cards, community):
@@ -1001,12 +1041,28 @@ class Handler(BaseHTTPRequestHandler):
                 winner_id = room["player1_id"]
             if winner_name == "Player 2":
                 winner_id = room["player2_id"]
+            hand_detail = {
+                "board": cards_label(state.get("community", [])),
+                "showdown_all_in": bool(state.get("showdown_all_in")),
+                "p1": {
+                    "name": "Player 1",
+                    "cards": cards_label(state["p1"].get("cards", [])),
+                    "shown": bool(state.get("show_cards", {}).get("p1")),
+                    "mucked": not bool(state.get("show_cards", {}).get("p1")) and bool(state["p1"].get("cards")),
+                },
+                "p2": {
+                    "name": seat_name(state, "p2"),
+                    "cards": cards_label(state["p2"].get("cards", [])),
+                    "shown": bool(state.get("show_cards", {}).get("p2")),
+                    "mucked": not bool(state.get("show_cards", {}).get("p2")) and bool(state["p2"].get("cards")),
+                },
+            }
             conn.execute(
                 """
-                insert into matches(room_code, mode, player1_id, player2_id, winner_id, winner_name, result, action_log, hand_number, created_at)
-                values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                insert into matches(room_code, mode, player1_id, player2_id, winner_id, winner_name, result, action_log, hand_detail, hand_number, created_at)
+                values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (room["code"], room["mode"], room["player1_id"], room["player2_id"], winner_id, winner_name, state["last_result"], json.dumps(state.get("action_log", [])), state["hand"], now()),
+                (room["code"], room["mode"], room["player1_id"], room["player2_id"], winner_id, winner_name, state["last_result"], json.dumps(state.get("action_log", [])), json.dumps(hand_detail), state["hand"], now()),
             )
 
     def public_room(self, room, state, viewer_id):
@@ -1051,6 +1107,10 @@ class Handler(BaseHTTPRequestHandler):
                 item["action_log"] = json.loads(item.get("action_log") or "[]")
             except json.JSONDecodeError:
                 item["action_log"] = []
+            try:
+                item["hand_detail"] = json.loads(item.get("hand_detail") or "{}")
+            except json.JSONDecodeError:
+                item["hand_detail"] = {}
             history.append(item)
         self.write_json({"history": history})
 

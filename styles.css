@@ -368,6 +368,33 @@ textarea {
   padding-left: 18px;
 }
 
+.history-hand-detail {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 132, 10, 0.08);
+}
+
+.history-hand-detail div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.history-hand-detail span {
+  color: var(--text);
+  font-weight: 800;
+  text-align: right;
+}
+
+.history-hand-detail em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
 .history-actions li {
   display: grid;
   gap: 2px;

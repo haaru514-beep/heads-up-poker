@@ -187,6 +187,14 @@ function escapeHtml(value) {
 
 function historyItemHtml(row) {
   const actions = Array.isArray(row.action_log) ? row.action_log : [];
+  const hand = row.hand_detail || {};
+  const handDetail = hand.p1 || hand.p2 ? `
+    <div class="history-hand-detail">
+      <div><strong>Board</strong><span>${escapeHtml(hand.board || "-")}</span></div>
+      ${historyHandSeatHtml(hand.p1)}
+      ${historyHandSeatHtml(hand.p2)}
+    </div>
+  ` : "";
   const detail = actions.length
     ? actions.map((action) => `
         <li>
@@ -202,9 +210,21 @@ function historyItemHtml(row) {
           <strong>${escapeHtml(row.result)}</strong>
           <span>${historyTimeLabel(row.created_at)} / ${escapeHtml(row.mode).toUpperCase()} / 部屋 ${escapeHtml(row.room_code)} / Hand ${escapeHtml(row.hand_number)}</span>
         </summary>
+        ${handDetail}
         <ol class="history-actions">${detail}</ol>
       </details>
     </li>
+  `;
+}
+
+function historyHandSeatHtml(seat) {
+  if (!seat) return "";
+  const status = seat.mucked ? "マック" : (seat.shown ? "公開" : "非公開");
+  return `
+    <div>
+      <strong>${escapeHtml(seat.name)}</strong>
+      <span>${escapeHtml(seat.cards || "-")} <em>${escapeHtml(status)}</em></span>
+    </div>
   `;
 }
 
