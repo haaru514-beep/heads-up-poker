@@ -1,5 +1,6 @@
 let currentUser = null;
 let currentRoom = null;
+let currentRoomState = null;
 let pollTimer = null;
 
 const $ = (selector) => document.querySelector(selector);
@@ -47,6 +48,8 @@ const els = {
   p2Icon: $("#p2Icon"),
   p1UserId: $("#p1UserId"),
   p2UserId: $("#p2UserId"),
+  p1Role: $("#p1Role"),
+  p2Role: $("#p2Role"),
   p1Stack: $("#p1Stack"),
   p2Stack: $("#p2Stack"),
   p1Cards: $("#p1Cards"),
@@ -55,6 +58,7 @@ const els = {
   p2Bet: $("#p2Bet"),
   communityCards: $("#communityCards"),
   messageText: $("#messageText"),
+  actionText: $("#actionText"),
   blindText: $("#blindText"),
   potText: $("#potText"),
   dealButton: $("#dealButton"),
@@ -62,6 +66,7 @@ const els = {
   raiseButton: $("#raiseButton"),
   allInButton: $("#allInButton"),
   foldButton: $("#foldButton"),
+  potSizeButtons: document.querySelectorAll(".pot-size-button"),
   raiseInput: $("#raiseInput"),
   raiseValue: $("#raiseValue"),
   adminLoginForm: $("#adminLoginForm"),
@@ -81,7 +86,7 @@ function cardLabel(card) {
 }
 
 function cardHtml(card) {
-  if (!card || card.hidden) return '<div class="card back"></div>';
+  if (!card || card.hidden) return `<div class="card back${card && card.mucked ? " mucked" : ""}">${card && card.mucked ? "<span>MUCK</span>" : ""}</div>`;
   const label = cardLabel(card);
   const rank = card.rank === "T" ? "10" : card.rank;
   const red = card.suit === "H" || card.suit === "D" ? " red" : "";
@@ -235,6 +240,7 @@ async function pollRoom() {
 }
 
 function renderRoom(room) {
+  currentRoomState = room;
   els.roomCode.textContent = room.code;
   els.p1Stack.textContent = room.p1.stack;
   els.p2Stack.textContent = room.p2.stack;
@@ -246,12 +252,15 @@ function renderRoom(room) {
   setIcon(els.p2Icon, room.p2.user ? room.p2.user.icon_data : "");
   els.p1UserId.textContent = room.p1.user ? room.p1.user.login_id : "";
   els.p2UserId.textContent = room.p2.user ? room.p2.user.login_id : "";
+  els.p1Role.textContent = roleText(room, "p1");
+  els.p2Role.textContent = roleText(room, "p2");
   els.p1Cards.innerHTML = room.p1.cards.map(cardHtml).join("");
   els.p2Cards.innerHTML = room.p2.cards.map(cardHtml).join("");
   const board = [...room.community];
   while (board.length < 5 && room.phase !== "idle" && room.phase !== "waiting") board.push(null);
   els.communityCards.innerHTML = board.map(cardHtml).join("");
   els.messageText.textContent = room.message;
+  els.actionText.textContent = actionText(room);
   els.blindText.textContent = room.blinds
     ? `Level ${room.blinds.level} / ${room.blinds.small_blind}-${room.blinds.big_blind} / ${formatClock(room.blinds.remaining_seconds)}${room.action_timer ? ` / 手番 ${room.action_timer.remaining_seconds}秒` : ""}`
     : "";
@@ -261,26 +270,57 @@ function renderRoom(room) {
   const viewer = room[room.viewer_seat];
   const bigBlind = room.blinds ? room.blinds.big_blind : 20;
   const minRaiseTo = room.current_bet ? room.current_bet + bigBlind : bigBlind;
-  const maxRaiseTo = Math.max(minRaiseTo, viewer.stack + viewer.bet);
+  const maxRaiseTo = viewer.stack + viewer.bet;
+  const canRaise = room.can_act && viewer.stack > 0 && maxRaiseTo >= minRaiseTo;
   const sliderStep = Math.max(1, Math.min(bigBlind, 100));
   els.raiseInput.min = minRaiseTo;
-  els.raiseInput.max = maxRaiseTo;
+  els.raiseInput.max = Math.max(minRaiseTo, maxRaiseTo);
   els.raiseInput.step = sliderStep;
-  if (Number(els.raiseInput.value) < minRaiseTo || Number(els.raiseInput.value) > maxRaiseTo) {
-    els.raiseInput.value = Math.min(maxRaiseTo, minRaiseTo);
+  if (Number(els.raiseInput.value) < minRaiseTo || Number(els.raiseInput.value) > Math.max(minRaiseTo, maxRaiseTo)) {
+    els.raiseInput.value = Math.min(Math.max(minRaiseTo, maxRaiseTo), minRaiseTo);
   }
   els.raiseValue.textContent = els.raiseInput.value;
-  els.dealButton.disabled = !["idle", "complete"].includes(room.phase);
-  els.dealButton.textContent = room.phase === "waiting" ? "参加待ち" : (room.phase === "complete" ? "次のハンド" : "始める");
+  els.dealButton.disabled = !["idle", "showdown_wait", "complete"].includes(room.phase);
+  els.dealButton.dataset.action = room.phase === "showdown_wait" ? "showdown" : "deal";
+  els.dealButton.textContent = room.phase === "waiting" ? "参加待ち" : (room.phase === "showdown_wait" ? "ショーダウン" : (room.phase === "complete" ? "次のハンド" : "始める"));
   els.callButton.disabled = !room.can_act;
-  els.raiseButton.disabled = !room.can_act;
+  els.raiseButton.disabled = !canRaise;
   els.allInButton.disabled = !room.can_act || viewer.stack <= 0;
   els.foldButton.disabled = !room.can_act || !toCall;
-  els.raiseInput.disabled = !room.can_act;
+  els.raiseInput.disabled = !canRaise;
+  els.potSizeButtons.forEach((button) => {
+    button.disabled = !canRaise;
+  });
   els.callButton.textContent = toCall ? `コール ${toCall}` : "チェック";
   els.raiseButton.textContent = room.current_bet ? `レイズ ${els.raiseInput.value}` : `ベット ${els.raiseInput.value}`;
   els.allInButton.textContent = `オールイン ${viewer.stack + viewer.bet}`;
   els.foldButton.textContent = "フォールド";
+}
+
+function roleText(room, seat) {
+  if (!room.roles) return "";
+  const labels = [];
+  if (room.roles.dealer === seat) labels.push("D");
+  if (room.roles.small_blind === seat) labels.push("SB");
+  if (room.roles.big_blind === seat) labels.push("BB");
+  return labels.join(" / ");
+}
+
+function actionText(room) {
+  if (room.phase === "showdown_wait") return "ショーダウン待ち";
+  if (!room.actor_name) return "";
+  const timer = room.action_timer ? ` / 残り${room.action_timer.remaining_seconds}秒` : "";
+  return `現在の手番: ${room.actor_name}${timer}`;
+}
+
+function setRaiseAmount(amount) {
+  const min = Number(els.raiseInput.min) || 0;
+  const max = Number(els.raiseInput.max) || min;
+  const step = Number(els.raiseInput.step) || 1;
+  const clamped = Math.max(min, Math.min(max, Math.round(amount / step) * step));
+  els.raiseInput.value = clamped;
+  els.raiseValue.textContent = clamped;
+  els.raiseButton.textContent = els.raiseButton.textContent.startsWith("レイズ") ? `レイズ ${clamped}` : `ベット ${clamped}`;
 }
 
 async function roomAction(name, body = {}) {
@@ -352,7 +392,7 @@ els.backButton.addEventListener("click", showLobby);
 els.copyButton.addEventListener("click", async () => {
   await navigator.clipboard.writeText(`${location.origin}\n部屋コード: ${currentRoom}`);
 });
-els.dealButton.addEventListener("click", () => roomAction("deal"));
+els.dealButton.addEventListener("click", () => roomAction(els.dealButton.dataset.action || "deal"));
 els.callButton.addEventListener("click", () => roomAction("call"));
 els.raiseButton.addEventListener("click", () => roomAction("raise", { amount: Number(els.raiseInput.value) || 40 }));
 els.allInButton.addEventListener("click", () => roomAction("allin"));
@@ -360,6 +400,16 @@ els.foldButton.addEventListener("click", () => roomAction("fold"));
 els.raiseInput.addEventListener("input", () => {
   els.raiseValue.textContent = els.raiseInput.value;
   els.raiseButton.textContent = els.raiseButton.textContent.startsWith("レイズ") ? `レイズ ${els.raiseInput.value}` : `ベット ${els.raiseInput.value}`;
+});
+els.potSizeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    if (!currentRoomState) return;
+    const percent = Number(button.dataset.potSize) || 0;
+    const viewer = currentRoomState[currentRoomState.viewer_seat];
+    const toCall = Math.max(0, currentRoomState.current_bet - viewer.bet);
+    const target = viewer.bet + toCall + (currentRoomState.pot + toCall) * percent;
+    setRaiseAmount(target);
+  });
 });
 
 els.adminLoginForm.addEventListener("submit", async (event) => {

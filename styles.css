@@ -406,7 +406,7 @@ textarea {
   width: min(280px, 94%);
   min-height: 52px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   column-gap: 12px;
   padding: 8px 14px;
@@ -419,6 +419,18 @@ textarea {
 .seat-meta small {
   grid-column: 2;
   color: var(--muted);
+}
+
+.role-badge {
+  min-width: 34px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  text-align: center;
 }
 
 .cards {
@@ -456,6 +468,13 @@ textarea {
     linear-gradient(135deg, transparent 75%, rgba(255, 255, 255, 0.16) 75%) 0 0 / 16px 16px,
     #ff8a0a;
   border: 4px solid #fffaf0;
+}
+
+.card.mucked {
+  place-items: center;
+  color: #fff;
+  font-size: 12px;
+  letter-spacing: 0;
 }
 
 .rank {
@@ -501,6 +520,16 @@ textarea {
   box-shadow: 0 8px 20px rgba(255, 132, 10, 0.08);
 }
 
+.action-text {
+  min-height: 22px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 132, 10, 0.12);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
 #potText {
   color: var(--gold);
 }
@@ -514,7 +543,7 @@ textarea {
 .controls {
   min-height: 76px;
   display: grid;
-  grid-template-columns: repeat(5, minmax(82px, auto)) minmax(170px, 1fr);
+  grid-template-columns: repeat(5, minmax(82px, auto)) minmax(170px, 1fr) auto;
   gap: 10px;
   align-items: center;
   padding: 12px;
@@ -558,6 +587,25 @@ textarea {
 
 .amount-control {
   min-width: min(360px, 100%);
+}
+
+.pot-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(48px, auto));
+  gap: 6px;
+}
+
+.pot-buttons button {
+  min-height: 42px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: #fff8ed;
+  color: var(--text);
+}
+
+.pot-buttons button::before {
+  content: none;
 }
 
 .amount-control strong {
@@ -693,6 +741,12 @@ input[type="range"] {
     line-height: 1;
   }
 
+  .role-badge {
+    min-width: 28px;
+    padding: 2px 5px;
+    font-size: 9px;
+  }
+
   .player-icon {
     width: 34px;
     height: 34px;
@@ -754,12 +808,19 @@ input[type="range"] {
     font-size: 11px;
   }
 
+  .action-text {
+    min-height: 18px;
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
   #potText {
     font-size: 15px;
   }
 
   .controls {
     min-height: 0;
+    grid-template-columns: repeat(3, 1fr);
     padding: 7px;
     gap: 6px;
     border-radius: 12px;
@@ -780,6 +841,7 @@ input[type="range"] {
   }
 
   .amount-control {
+    grid-column: 1 / -1;
     min-height: 36px;
     grid-template-columns: 36px 1fr 54px;
     gap: 6px;
@@ -792,6 +854,15 @@ input[type="range"] {
 
   input[type="range"] {
     min-height: 34px;
+  }
+
+  .pot-buttons {
+    grid-column: 1 / -1;
+  }
+
+  .pot-buttons button {
+    min-height: 34px;
+    font-size: 11px;
   }
 }
 

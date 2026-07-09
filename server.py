@@ -241,6 +241,10 @@ def fresh_state(mode, player1_id, player2_id=None, settings=None):
         "current_bet": 0,
         "acted": {"p1": False, "p2": False},
         "showdown": False,
+        "showdown_all_in": False,
+        "show_cards": {"p1": False, "p2": False},
+        "last_aggressor": None,
+        "street_first_actor": None,
         "settings": settings,
         "level_started_at": None,
         "hand_started_at": None,
@@ -297,6 +301,9 @@ def start_hand(state):
     state["p2"]["folded"] = False
     state["pot"] = 0
     state["showdown"] = False
+    state["showdown_all_in"] = False
+    state["show_cards"] = {"p1": False, "p2": False}
+    state["last_aggressor"] = None
     state["last_result"] = ""
     state["action_log"] = []
     state["hand_started_at"] = now()
@@ -309,6 +316,7 @@ def start_hand(state):
         commit_bet(state, "p2", blinds["small_blind"])
         commit_bet(state, "p1", blinds["big_blind"])
         state["actor"] = "p2"
+    state["street_first_actor"] = state["actor"]
     state["message"] = f'{seat_name(state, state["actor"])}のアクションです'
     add_action_log(state, f'ハンド開始 / SB {blinds["small_blind"]} / BB {blinds["big_blind"]}')
     add_action_log(state, f'ブラインド: Player 1 {state["p1"]["bet"]} / {seat_name(state, "p2")} {state["p2"]["bet"]}')
@@ -318,6 +326,8 @@ def start_hand(state):
 def next_street(state):
     clean_bets(state)
     state["actor"] = other(state["dealer"])
+    state["street_first_actor"] = state["actor"]
+    state["last_aggressor"] = None
     if state["phase"] == "preflop":
         state["community"].extend(draw(state, 3))
         state["phase"] = "flop"
@@ -331,7 +341,7 @@ def next_street(state):
         state["phase"] = "river"
         add_action_log(state, f'リバー: {card_label(state["community"][-1])}')
     else:
-        finish_showdown(state)
+        wait_showdown(state, False)
         return
     state["message"] = f'{seat_name(state, state["actor"])}のアクションです'
     reset_action_timer(state)
@@ -339,6 +349,24 @@ def next_street(state):
 
 def can_close(state):
     return state["p1"]["bet"] == state["p2"]["bet"] and state["acted"]["p1"] and state["acted"]["p2"]
+
+
+def any_all_in(state):
+    return state["p1"]["stack"] <= 0 or state["p2"]["stack"] <= 0
+
+
+def complete_board(state):
+    while len(state["community"]) < 5:
+        state["community"].extend(draw(state, 1))
+
+
+def wait_showdown(state, all_in=False):
+    state["phase"] = "showdown_wait"
+    state["actor"] = None
+    state["showdown_all_in"] = bool(all_in)
+    state["message"] = "アクション終了。ショーダウンを押してください"
+    state["action_started_at"] = None
+    add_action_log(state, "オールインショーダウン待ち" if all_in else "ショーダウン待ち")
 
 
 def seat_name(state, seat):
@@ -371,7 +399,7 @@ def reset_action_timer(state):
 def action_timer(state):
     if not state.get("settings", {}).get("hand_timer_enabled"):
         return None
-    if state["phase"] in ("idle", "waiting", "complete"):
+    if state["phase"] in ("idle", "waiting", "showdown_wait", "complete"):
         return None
     seconds = int_setting(state.get("settings", {}).get("hand_seconds"), 30, 10, 300)
     started = int(state.get("action_started_at") or now())
@@ -391,10 +419,12 @@ def apply_action_timer(state):
 
 
 def action(state, seat, kind, amount=0):
-    if state["phase"] in ("idle", "waiting", "complete"):
+    if state["phase"] in ("idle", "waiting", "showdown_wait", "complete"):
         raise ValueError("今はアクションできません")
     if state["actor"] != seat:
         raise ValueError("相手の手番です")
+    if state[seat]["stack"] <= 0:
+        raise ValueError("持ち点がないためアクションできません")
     if kind == "fold":
         winner = other(seat)
         state[seat]["folded"] = True
@@ -408,63 +438,119 @@ def action(state, seat, kind, amount=0):
         state["message"] = f'{seat_name(state, seat)}が{"コール" if to_call else "チェック"}'
         add_action_log(state, f'{seat_name(state, seat)} {"コール" if to_call else "チェック"} {to_call}')
     if kind == "allin":
+        if state[seat]["stack"] <= 0:
+            raise ValueError("オールインできる持ち点がありません")
         previous_bet = state["current_bet"]
         previous_stack = state[seat]["stack"]
         commit_bet(state, seat, state[seat]["stack"])
         state["acted"][seat] = True
         if state[seat]["bet"] > previous_bet:
             state["acted"][other(seat)] = False
+            state["last_aggressor"] = seat
         state["message"] = f'{seat_name(state, seat)}がオールイン'
         add_action_log(state, f'{seat_name(state, seat)} オールイン {previous_stack}')
     if kind == "raise":
+        if state[seat]["stack"] <= 0:
+            raise ValueError("ベットできる持ち点がありません")
         was_open_bet = state["current_bet"] == 0
         target = max(state["current_bet"] + current_blinds(state)["big_blind"], int(amount))
         before_stack = state[seat]["stack"]
         commit_bet(state, seat, target - state[seat]["bet"])
         state["acted"][seat] = True
         state["acted"][other(seat)] = False
+        state["last_aggressor"] = seat
         state["message"] = f'{seat_name(state, seat)}が{target}に{"ベット" if was_open_bet else "レイズ"}'
         paid = before_stack - state[seat]["stack"]
         add_action_log(state, f'{seat_name(state, seat)} {"ベット" if was_open_bet else "レイズ"} {state[seat]["bet"]} (+{paid})')
     if state["phase"] != "complete":
-        state["actor"] = other(seat)
+        if state[seat]["stack"] <= 0 and state[seat]["bet"] < state["current_bet"]:
+            complete_board(state)
+            wait_showdown(state, True)
+            return
         if can_close(state):
+            if any_all_in(state):
+                complete_board(state)
+                wait_showdown(state, True)
+                return
             next_street(state)
+        elif state[other(seat)]["stack"] <= 0:
+            complete_board(state)
+            wait_showdown(state, True)
+            return
         else:
+            state["actor"] = other(seat)
             reset_action_timer(state)
 
 
 def cpu_action(state):
     for _ in range(8):
-        if state["mode"] != "cpu" or state["actor"] != "p2" or state["phase"] in ("idle", "complete"):
+        if state["mode"] != "cpu" or state["actor"] != "p2" or state["phase"] in ("idle", "showdown_wait", "complete"):
             return
         to_call = max(0, state["current_bet"] - state["p2"]["bet"])
+        if state["p2"]["stack"] <= 0:
+            complete_board(state)
+            wait_showdown(state, True)
+            return
         strength = estimate_strength(state["p2"]["cards"], state["community"])
+        pot_odds = to_call / max(1, state["pot"] + to_call)
         roll = secrets.randbelow(100) / 100
-        if to_call and strength + roll * 0.35 < 0.34:
-            award_pot(state, "p1", "CPUがフォールド。Player 1の勝ち")
+        pressure = min(0.25, to_call / max(1, state["p2"]["stack"] + to_call) * 0.4)
+        call_line = 0.24 + pot_odds * 0.9 + pressure - roll * 0.08
+        if to_call and strength < call_line:
+            action(state, "p2", "fold")
         elif to_call:
-            action(state, "p2", "call")
-        elif strength > 0.58 and roll > 0.45:
+            if strength > 0.78 and state["p2"]["stack"] > to_call + current_blinds(state)["big_blind"] and roll > 0.5:
+                action(state, "p2", "allin" if strength > 0.92 and roll > 0.72 else "raise", cpu_bet_size(state, strength))
+            else:
+                action(state, "p2", "call")
+        elif strength > 0.62 and roll > 0.28:
+            action(state, "p2", "raise", cpu_bet_size(state, strength))
+        elif strength > 0.48 and roll > 0.72:
             big_blind = current_blinds(state)["big_blind"]
-            size = max(big_blind, round(max(state["pot"], big_blind) * 0.55 / 20) * 20)
-            action(state, "p2", "raise", size)
+            action(state, "p2", "raise", max(big_blind, state["p2"]["bet"] + big_blind))
         else:
             action(state, "p2", "call")
+
+
+def cpu_bet_size(state, strength):
+    big_blind = current_blinds(state)["big_blind"]
+    pot = max(state["pot"], big_blind)
+    if strength > 0.9:
+        percent = 1.0
+    elif strength > 0.76:
+        percent = 0.65
+    else:
+        percent = 0.45
+    target = state["p2"]["bet"] + max(big_blind, int(round(pot * percent / big_blind)) * big_blind)
+    return min(state["p2"]["stack"] + state["p2"]["bet"], max(state["current_bet"] + big_blind, target))
 
 
 def estimate_strength(cards, community):
     if len(community) >= 3:
         scored = best_hand(cards + community)
-        return min(0.98, 0.22 + scored["category"] * 0.105 + scored["kickers"][0] / 28)
+        board_factor = 0.22 + scored["category"] * 0.105 + scored["kickers"][0] / 28
+        if len(community) >= 4:
+            board_factor += 0.03
+        return min(0.98, board_factor)
     a, b = cards
-    value = (a["value"] + b["value"]) / 30
+    high = max(a["value"], b["value"])
+    low = min(a["value"], b["value"])
+    gap = high - low
+    value = (high * 1.55 + low) / 42
     if a["value"] == b["value"]:
-        value += 0.3
+        value += 0.34 + high / 80
     if a["suit"] == b["suit"]:
-        value += 0.08
-    if abs(a["value"] - b["value"]) <= 2:
+        value += 0.07
+    if gap == 1:
         value += 0.06
+    elif gap == 2:
+        value += 0.035
+    elif gap >= 5:
+        value -= 0.07
+    if high >= 14 and low >= 10:
+        value += 0.12
+    if high <= 11 and low <= 7 and gap >= 3:
+        value -= 0.1
     return min(0.95, value)
 
 
@@ -484,6 +570,9 @@ def finish_showdown(state):
     comparison = compare_scores(p1, p2)
     state["phase"] = "complete"
     state["showdown"] = True
+    all_in_showdown = bool(state.get("showdown_all_in"))
+    first_show = state.get("last_aggressor") or state.get("street_first_actor") or "p1"
+    second_show = other(first_show)
     if comparison > 0:
         state["p1"]["stack"] += state["pot"]
         state["last_result"] = f'Player 1の勝ち: {p1["name"]}'
@@ -495,8 +584,20 @@ def finish_showdown(state):
         state["p1"]["stack"] += half
         state["p2"]["stack"] += state["pot"] - half
         state["last_result"] = f'チョップ: {p1["name"]}'
+    if all_in_showdown or comparison == 0:
+        state["show_cards"] = {"p1": True, "p2": True}
+    else:
+        winner = "p1" if comparison > 0 else "p2"
+        state["show_cards"] = {
+            first_show: True,
+            second_show: second_show == winner,
+        }
     state["message"] = state["last_result"]
-    add_action_log(state, f'ショーダウン: Player 1 {p1["name"]} / {seat_name(state, "p2")} {p2["name"]}')
+    if all_in_showdown:
+        add_action_log(state, f'オールインショーダウン: Player 1 {p1["name"]} / {seat_name(state, "p2")} {p2["name"]}')
+    else:
+        shown = "両者公開" if comparison == 0 or state["show_cards"][second_show] else f'{seat_name(state, second_show)}はマック'
+        add_action_log(state, f'ショーダウン: {seat_name(state, first_show)}から公開 / {shown}')
     add_action_log(state, state["last_result"])
     state["dealer"] = other(state["dealer"])
 
@@ -865,6 +966,10 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("まだ参加者が揃っていません")
             else:
                 raise ValueError("このハンドはすでに始まっています")
+        elif action_name == "showdown":
+            if state["phase"] != "showdown_wait":
+                raise ValueError("まだショーダウンできません")
+            finish_showdown(state)
         elif action_name in ("call", "raise", "allin", "fold"):
             action(state, seat, action_name, data.get("amount", 0))
             cpu_action(state)
@@ -909,17 +1014,22 @@ class Handler(BaseHTTPRequestHandler):
         viewer_seat = "p1" if state["p1"].get("user_id") == viewer_id else "p2"
         users = user_lookup([state["p1"].get("user_id"), state["p2"].get("user_id")])
         for seat in ("p1", "p2"):
-            if not state["showdown"] and seat != viewer_seat and not (state["mode"] == "cpu" and seat == "p2"):
+            show_cards = state.get("show_cards", {}).get(seat, False)
+            if state["showdown"] and not show_cards:
+                visible[seat]["cards"] = [{"hidden": True, "mucked": True}, {"hidden": True, "mucked": True}] if state[seat]["cards"] else []
+            elif not state["showdown"] and seat != viewer_seat and not (state["mode"] == "cpu" and seat == "p2"):
                 visible[seat]["cards"] = [{"hidden": True}, {"hidden": True}] if state[seat]["cards"] else []
             if state["mode"] == "cpu" and seat == "p2" and not state["showdown"]:
                 visible[seat]["cards"] = [{"hidden": True}, {"hidden": True}] if state[seat]["cards"] else []
             visible[seat]["user"] = users.get(state[seat].get("user_id"))
         visible["viewer_seat"] = viewer_seat
-        visible["can_act"] = state["actor"] == viewer_seat and state["phase"] not in ("idle", "waiting", "complete")
+        visible["can_act"] = state["actor"] == viewer_seat and state[viewer_seat]["stack"] > 0 and state["phase"] not in ("idle", "waiting", "showdown_wait", "complete")
         visible["code"] = room["code"]
         visible["status"] = room["status"]
         visible["blinds"] = current_blinds(state)
         visible["action_timer"] = action_timer(state)
+        visible["roles"] = {"dealer": state.get("dealer"), "small_blind": state.get("dealer"), "big_blind": other(state.get("dealer", "p1"))}
+        visible["actor_name"] = seat_name(state, state["actor"]) if state.get("actor") in ("p1", "p2") else ""
         return visible
 
     def history(self):

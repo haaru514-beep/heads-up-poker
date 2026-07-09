@@ -119,6 +119,7 @@
                 <span id="p2Name">Player 2</span>
                 <small id="p2UserId"></small>
                 <strong id="p2Stack">1000</strong>
+                <em id="p2Role" class="role-badge"></em>
               </div>
               <div id="p2Cards" class="cards"></div>
               <div id="p2Bet" class="chip">ベット 0</div>
@@ -127,6 +128,7 @@
             <div class="board">
               <div id="communityCards" class="cards community"></div>
               <p id="messageText">始めるを押してください</p>
+              <span id="actionText" class="action-text"></span>
               <span id="blindText"></span>
               <strong id="potText">ポット 0</strong>
             </div>
@@ -139,6 +141,7 @@
                 <span id="p1Name">Player 1</span>
                 <small id="p1UserId"></small>
                 <strong id="p1Stack">1000</strong>
+                <em id="p1Role" class="role-badge"></em>
               </div>
             </div>
           </section>
@@ -154,6 +157,11 @@
               <input id="raiseInput" type="range" min="20" max="1000" step="10" value="40" />
               <strong id="raiseValue">40</strong>
             </label>
+            <div class="pot-buttons" aria-label="ポット倍率">
+              <button class="pot-size-button" type="button" data-pot-size="0.33">33%</button>
+              <button class="pot-size-button" type="button" data-pot-size="0.5">50%</button>
+              <button class="pot-size-button" type="button" data-pot-size="1">100%</button>
+            </div>
           </section>
         </section>
       </section>
