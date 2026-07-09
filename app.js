@@ -76,6 +76,7 @@ const els = {
   tournamentStackInput: $("#tournamentStackInput"),
   tournamentTimerInput: $("#tournamentTimerInput"),
   structureInput: $("#structureInput"),
+  adminCreatedRoom: $("#adminCreatedRoom"),
   adminRoomList: $("#adminRoomList"),
 };
 
@@ -465,7 +466,7 @@ els.adminRoomForm.addEventListener("submit", async (event) => {
       },
     });
     await loadAdminRooms();
-    showRoom(data.code);
+    els.adminCreatedRoom.textContent = `大会部屋を作成しました。部屋コード: ${data.code}`;
   } catch (error) {
     alert(error.message);
   }

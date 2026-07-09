@@ -912,7 +912,7 @@ class Handler(BaseHTTPRequestHandler):
                 insert into rooms(code, mode, status, owner_id, player1_id, player2_id, state_json, created_at, updated_at)
                 values(?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (code, "pvp", "tournament", 0, 0, None, json.dumps(state), now(), now()),
+                (code, "pvp", "tournament", 0, None, None, json.dumps(state), now(), now()),
             )
         self.write_json({"code": code})
 
@@ -944,12 +944,14 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("部屋が見つかりません")
             if room["mode"] != "pvp":
                 raise ValueError("この部屋には参加できません")
-            if room["player1_id"] == user["id"] or room["player2_id"] == user["id"]:
+            state = json.loads(room["state_json"])
+            player1_id = state["p1"].get("user_id") or room["player1_id"]
+            player2_id = state["p2"].get("user_id") or room["player2_id"]
+            if player1_id == user["id"] or player2_id == user["id"]:
                 self.write_json({"code": code})
                 return
-            if room["player2_id"]:
+            if player1_id and player2_id:
                 raise ValueError("この部屋は満席です")
-            state = json.loads(room["state_json"])
             if not state["p1"].get("user_id"):
                 state["p1"]["user_id"] = user["id"]
                 state["message"] = "もう1人の参加者を待っています"

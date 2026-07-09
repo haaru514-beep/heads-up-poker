@@ -315,6 +315,15 @@ textarea {
   color: var(--muted);
 }
 
+.admin-created-room {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 132, 10, 0.12);
+  color: var(--text);
+  font-weight: 900;
+}
+
 .history {
   padding: 12px;
 }
